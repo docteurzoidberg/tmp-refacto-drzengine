@@ -6,10 +6,17 @@
 
 using namespace drz;
 
-std::unique_ptr<IDrzEngine> drzenginepge = nullptr;
+class Engine {
+  IDrzGraphics* graphics;
+  IDrzInput* input;
+  IDrzAudio* audio;
+
+  virtual void Setup() = 0;
+  virtual void Update(float elapsedTime) = 0;
+};
 
 //App exemple
-class VanAssistant {
+class VanAssistant : Engine {
   public:
     VanAssistant() {
       std::cout << "VanAssistant constructor called" << std::endl;
@@ -41,18 +48,20 @@ void drzLoop(float elapsedTime) {
 int main(){
 
   //Engine implementation
-  drzenginepge = std::make_unique<DrzEngine_PGE>(320, 240, 2);
-
-  //engine setup autodetects engine sub parts
-  DrzEngine::Setup();  
-
-  //Engine must be setup before vanassistant so vanassistant can use DrzSerial, DrzGraphics, DrzInputs, etc
-  vanassistant = new VanAssistant();
-  vanassistant->Setup();
-
-  //Start engine main loop
-  DrzEngine::SetLoopCallBack(drzLoop);
-  DrzEngine::Start();
-
+  engine = std::make_unique<DrzEngine_PGE>(320, 240, 2);
+  engine.use_app(new VanAssistant(engine, engine, engine));
+  engine.Start();
   return 0;
+}
+
+VanAssistant* app;
+
+void setup() {
+  app = new VanAssistant(new graphic_module(), ...);
+  app.Setup();
+}
+
+viod loop() {
+  app.input.update();
+  app.Update();
 }
