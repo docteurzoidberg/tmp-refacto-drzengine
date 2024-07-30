@@ -11,12 +11,7 @@ DrzEngine_PGE::DrzEngine_PGE(int width, int height, int pixelSize) : width(width
 
   pge = new PixelGameEngineApp();
 
-  //Set pge loop callback
-  pge->loopCallBack = [&](float fElapsedTime) {
-    Loop(fElapsedTime);
-    return true;
-  };
-  
+  //PGEengine does graphics, main loop, and inputs
   DrzEngine::Set(this);
   DrzGraphics::Set(this);
   DrzInputs::Set(this);
@@ -24,6 +19,9 @@ DrzEngine_PGE::DrzEngine_PGE(int width, int height, int pixelSize) : width(width
   //TODO: set serial class
   //TODO: set audio class
 }
+
+
+#pragma region IDrzEngine
 
 DrzEngine_PGE::~DrzEngine_PGE() {
   std::cout << "DrzEngine_PGE destructor called" << std::endl;
@@ -36,16 +34,22 @@ void DrzEngine_PGE::Setup() {
   }
 }
 
-void DrzEngine_PGE::Loop(float elapsedTime) {
-  //std::cout << "DrzEngine_PGE::Loop called" << std::endl;
-  //Trigger engine loop
-  DrzEngine::Loop(elapsedTime);
-}
-
 void DrzEngine_PGE::Start() {
   std::cout << "DrzEngine_PGE::Start called" << std::endl;
+  //start pge loop
   pge->Start();
   //TODO call started callback
 }
+
+#pragma endregion // IDrzEngine
+
+#pragma region IDrzGraphics
+
+void DrzEngine_PGE::DrawPixel(int x, int y, Color color) {
+  //using pge graphics
+  pge->Draw(x, y, olc::Pixel(color.r, color.g, color.b, color.a));
+}
+
+#pragma endregion // IDrzGraphics
 
 

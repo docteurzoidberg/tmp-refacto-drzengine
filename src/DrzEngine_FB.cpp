@@ -1,5 +1,6 @@
 #include <DrzEngine_FB.h>
 #include <iostream>
+#include <signal.h>
 
 using namespace drz;
 
@@ -26,16 +27,30 @@ void DrzEngine_FB::Setup() {
   std::cout << "DrzEngine_FB::Setup called" << std::endl;
 }
 
-void DrzEngine_FB::Loop(float elapsedTime) {
-  std::cout << "DrzEngine_FB::Loop called" << std::endl;
-  //Trigger engine loop
-  DrzEngine::Loop(elapsedTime);
-}
-
 void DrzEngine_FB::Start() {
   std::cout << "DrzEngine_FB::Start called" << std::endl;
+
+  //sigint handler
+  signal(SIGINT, DrzEngine::SignalHandler);
+
   //TODO open framebuffer
   std::cout << "TODO: setup framebuffer" << std::endl;
+  //keep elapsing time
+  float elapsedTime = 0.0f; 
+
+  start = std::chrono::high_resolution_clock::now();
+  lastUpdate = start;
+
+  while(DrzEngine::isRunning) {
+    //calculate elapsed time in milliseconds
+    elapsedTime = std::chrono::duration<float, std::milli>(std::chrono::high_resolution_clock::now() - lastUpdate).count() / 1000.0f;
+    DrzEngine::Loop(elapsedTime);
+    lastUpdate = std::chrono::high_resolution_clock::now();
+  }
+}
+
+void DrzEngine_FB::DrawPixel(int x, int y, Color color) {
+  //TODO
 }
 
 
