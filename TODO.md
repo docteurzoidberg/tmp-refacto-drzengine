@@ -1,7 +1,5 @@
 # DrzGraphics
 
-[ ] Clear
-[ ] CreateSpriteFromData
 [ ] DrawSprite
 [ ] SetPaintMode
 [ ] SetFont

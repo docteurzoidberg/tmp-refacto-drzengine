@@ -3,7 +3,6 @@
 #include "IDrzEngineApp.h"
 
 #include "IDrzEngine.h"
-#include "IDrzInputs.h"
 #include "IDrzSerial.h"
 #include "IDrzSam.h"
 
@@ -83,23 +82,5 @@ class DrzSam
 
 #pragma endregion
 
-#pragma region DrzInputs
 
-/***
- * @brief DrzInputs is the main static input class
-*/
-class DrzInputs {
-  public:
-    static IDrzInputs* Get() {
-      return instance;
-    }
-    static void Set(IDrzInputs* inputs) {
-      instance = inputs;
-    }
-
-  private:
-    inline static IDrzInputs* instance = nullptr;
-};
-
-#pragma endregion
 } // namespace drz

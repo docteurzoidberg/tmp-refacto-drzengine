@@ -1,7 +1,8 @@
 #pragma once
 
 #include <IDrzEngine.h>
-#include <IDrzInputs.h>
+
+#include <DrzInputs.h>
 #include <DrzGraphics.h>
 #include <DrzEngine.h>
 
@@ -77,6 +78,9 @@ class DrzEngine_PGE : public IDrzGraphics, public IDrzInputs, public IDrzEngine
 
     void Clear(Color color) override;
 
+    void LoadFont(std::string fontName, font* f) override;
+    void SetFont(std::string fontName) override;
+
     bool DrawPixel(int x, int y, Color color) override;
     void DrawLine(int x1, int y1, int x2, int y2, Color color) override;
     void DrawTriangle(int x1, int y1, int x2, int y2, int x3, int y3, Color color) override;
@@ -95,6 +99,13 @@ class DrzEngine_PGE : public IDrzGraphics, public IDrzInputs, public IDrzEngine
     float GetRandomFloat() override;
 
     #pragma endregion // IDrzGraphics
+
+    //Inputs impl.-----------------------------------------------
+    #pragma region IDrzInputs
+
+    HardwareButton GetKey(Key key) override;
+
+    #pragma endregion // IDrzInputs
 
   private:
     PixelGameEngineApp* pge;

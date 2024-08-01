@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <algorithm>
+#include <map>
 
 namespace drz::graphics {
 
@@ -187,8 +188,7 @@ namespace drz::graphics {
 
   #pragma endregion // Color
 
-  //Basics structures used everywhere
-  #pragma region Basic structs
+  #pragma region Structs
 
   struct rect {
     int x, y, w, h;
@@ -215,32 +215,30 @@ namespace drz::graphics {
     Color color;
   };
 
-  #pragma endregion
+  #pragma endregion Structs
 
-  //Fonts
-  #pragma region Font stuff
+  #pragma region Fonts
 
+  /// Font glyph structure (taken from Adafruit GFX library)
+  struct fontglyph {
+    uint16_t bitmapOffset;  // Pointer into GFXfont->bitmap
+    uint8_t width;
+    uint8_t height;         // Bitmap dimensions in pixels
+    uint8_t xAdvance;       // Distance to advance cursor (x axis)
+    int8_t xOffset;
+    int8_t yOffset;         // Dist from cursor pos to UL corner
+  };
 
-    /// Font glyph structure (taken from Adafruit GFX library)
-    struct fontglyph {
-      uint16_t bitmapOffset;  // Pointer into GFXfont->bitmap
-      uint8_t width;
-      uint8_t height;         // Bitmap dimensions in pixels
-      uint8_t xAdvance;       // Distance to advance cursor (x axis)
-      int8_t xOffset;
-      int8_t yOffset;         // Dist from cursor pos to UL corner
-    };
+  /// Font structure (take from Adafruit GFX library)
+  struct font {
+    uint8_t *bitmap;        // Glyph bitmaps, concatenated
+    fontglyph *glyph;       // Glyph array
+    uint16_t first;
+    uint16_t last;          // ASCII extents
+    uint8_t yAdvance;       // Newline distance (y axis)
+  };
 
-    /// Font structure (take from Adafruit GFX library)
-    struct font {
-      uint8_t *bitmap;        // Glyph bitmaps, concatenated
-      fontglyph *glyph;       // Glyph array
-      uint16_t first;
-      uint16_t last;          // ASCII extents
-      uint8_t yAdvance;       // Newline distance (y axis)
-    };
-
-  #pragma endregion //Font stuff
+  #pragma endregion Fonts
 
   #pragma region Sprite
 
@@ -251,7 +249,7 @@ namespace drz::graphics {
       Sprite(int w, int h, const uint32_t* data);
   };
 
-  #pragma endregion //Sprite
+  #pragma endregion Sprite
 
 } // namespace drz::graphics
 
@@ -260,10 +258,14 @@ namespace drz {
   using namespace graphics;
 
   #pragma region IDrzGraphics
+  
   class IDrzGraphics {
     public: 
 
       virtual void Clear(Color color) = 0;
+
+      virtual void LoadFont(std::string fontName, font* f) = 0;
+      virtual void SetFont(std::string fontName) = 0;
       
       virtual bool DrawPixel(int x, int y, Color color) = 0;
       virtual void DrawLine(int x1, int y1, int x2, int y2, Color color) = 0;
@@ -282,7 +284,7 @@ namespace drz {
       virtual int GetScreenHeight() = 0;
   };
 
-  #pragma endregion // IDrzGraphics
+  #pragma endregion IDrzGraphics
   
   #pragma region DrzGraphics
 
@@ -291,10 +293,18 @@ namespace drz {
       static IDrzGraphics* Get();
       static void Set(IDrzGraphics* graphics);
 
+      static void LoadFont(std::string fontName, font* f);
+      static font* GetFont();
+      static font* GetFont(std::string fontName);
+      static void SetFont(font* f);
+      static void SetFont(std::string fontName);
+
     private:
       inline static IDrzGraphics* instance = nullptr;
+      inline static std::map<std::string, font*> fonts;
+      inline static font* currentFont = nullptr;
   };
 
-  #pragma endregion // DrzGraphics
+  #pragma endregion DrzGraphics
 
 } // namespace drz

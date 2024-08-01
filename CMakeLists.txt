@@ -14,14 +14,14 @@ option(BUILD_TEST_APPS "Build test apps" ON)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 if(BUILD_PGELIB) 
-  add_library(drzenginepge STATIC src/DrzEngine.cpp src/DrzGraphics.cpp src/DrzEngine_PGE.cpp) 
+  add_library(drzenginepge STATIC src/DrzEngine.cpp src/DrzGraphics.cpp src/DrzInputs.cpp src/DrzEngine_PGE.cpp)
   # Specify the include directory for consumers
   target_include_directories(drzenginepge PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
   #TODO: add support for others platform using olc::pge like emscripten and windows here
 endif()
 
 if(BUILD_FBLIB)
-  add_library(drzenginefb src/DrzEngine.cpp src/DrzGraphics.cpp src/DrzEngine_FB.cpp)
+  add_library(drzenginefb src/DrzEngine.cpp src/DrzGraphics.cpp src/DrzInputs.cpp src/DrzEngine_FB.cpp)
   target_include_directories(drzenginefb PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 endif()
 

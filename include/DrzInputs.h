@@ -26,3 +26,26 @@ namespace drz::inputs {
   };
 
 } // namespace drz::inputs
+
+
+namespace drz {
+
+using namespace inputs;
+
+class IDrzInputs
+{
+  public:
+    virtual HardwareButton GetKey(Key key) = 0;
+
+};
+
+class DrzInputs {
+  public:
+    static IDrzInputs* Get();
+    static void Set(IDrzInputs* inputs);
+
+  private:
+    inline static IDrzInputs* instance = nullptr;
+};
+
+} // namespace drz
