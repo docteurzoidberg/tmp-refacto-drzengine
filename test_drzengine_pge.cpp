@@ -4,7 +4,6 @@
 #include "TestApp.h"
 
 #include <memory>
-#include <iostream>
 
 using namespace drz;
 

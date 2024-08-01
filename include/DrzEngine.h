@@ -1,18 +1,20 @@
 #pragma once
 
 #include "IDrzEngineApp.h"
+
 #include "IDrzEngine.h"
 #include "IDrzInputs.h"
 #include "IDrzSerial.h"
-#include "IDrzGraphics.h"
 #include "IDrzSam.h"
-
-#include <functional>
-#include <memory>
 
 namespace drz 
 {
 
+#pragma region DrzEngine
+
+/***
+ * @brief DrzEngine is the main static engine class
+*/
 class DrzEngine
 {
   public:
@@ -20,25 +22,30 @@ class DrzEngine
     
     DrzEngine();
     ~DrzEngine();
+    
+    static void Set(IDrzEngine* engine);
+    static IDrzEngine* Get(); 
+    static void SignalHandler(int signal);
 
     static void Loop(float elapsedTime);
     static void Setup();
     static void Start();
 
-    static void UseApp(IDrzEngineApp* engineapp) {
-      app = engineapp;
-    }
-
-    static void SignalHandler(int signal);
-
-    static void Set(IDrzEngine* engine);
-    static IDrzEngine* Get();
+    static void UseApp(IDrzEngineApp* engineapp);
+    static bool AppCommand(const std::string& command);
 
   private:
     inline static IDrzEngineApp* app;
     inline static IDrzEngine* engine;
 };
 
+#pragma endregion
+
+#pragma region DrzSerial
+
+/***
+ * @brief DrzSerial is the main static serial class
+*/
 class DrzSerial
 {
   public:
@@ -53,20 +60,13 @@ class DrzSerial
     inline static IDrzSerial* instance = nullptr;
 };
 
-class DrzGraphics
-{
-  public:
-    static IDrzGraphics* Get() {
-      return instance;
-    }
-    static void Set(IDrzGraphics* graphics) {
-      instance = graphics;
-    }
+#pragma endregion
 
-  private:
-    inline static IDrzGraphics* instance = nullptr;
-};
 
+#pragma region DrzSam
+/***
+ * @brief DrzSam is the main static sam class
+*/
 class DrzSam
 {
   public:
@@ -81,6 +81,13 @@ class DrzSam
     inline static IDrzSam* instance = nullptr;
 };  
 
+#pragma endregion
+
+#pragma region DrzInputs
+
+/***
+ * @brief DrzInputs is the main static input class
+*/
 class DrzInputs {
   public:
     static IDrzInputs* Get() {
@@ -94,4 +101,5 @@ class DrzInputs {
     inline static IDrzInputs* instance = nullptr;
 };
 
+#pragma endregion
 } // namespace drz

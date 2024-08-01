@@ -49,8 +49,30 @@ void DrzEngine_FB::Start() {
   }
 }
 
-void DrzEngine_FB::DrawPixel(int x, int y, Color color) {
+bool DrzEngine_FB::DrawPixel(int x, int y, Color color) {
+  //TODO
+  return true;
+}
+
+void DrzEngine_FB::DrawLine(int x1, int y1, int x2, int y2, Color color) {
   //TODO
 }
+
+void DrzEngine_FB::DrawTriangle(int x1, int y1, int x2, int y2, int x3, int y3, Color color) {
+  //TODO
+}
+
+void DrzEngine_FB::DrawText(std::string text, int x, int y, Color color) {
+  //TODO
+}
+
+void DrzEngine_FB::FillCircle(int x, int y, int radius, Color color) {
+  //TODO
+}
+
+void DrzEngine_FB::FillTriangle(int x1, int y1, int x2, int y2, int x3, int y3, Color color) {
+  //TODO
+}
+
 
 

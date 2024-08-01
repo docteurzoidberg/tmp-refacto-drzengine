@@ -33,7 +33,7 @@ void DrzEngine::Setup() {
 }
 
 void DrzEngine::Loop(float elapsedTime) {
-  //std::cout << "DrzEngine::Loop called" << std::endl;
+  std::cout << "DrzEngine::Loop called" << std::endl;
   if(engine==nullptr) {
     std::cerr << "Engine is null" << std::endl;
     return;
@@ -57,4 +57,12 @@ void DrzEngine::SignalHandler(int signum) {
   // cleanup and close up stuff here  
   // terminate program  
   isRunning = false;
+}
+
+void DrzEngine::UseApp(IDrzEngineApp* engineapp) {
+  app = engineapp;
+}
+
+bool DrzEngine::AppCommand(const std::string& command) {
+  return app->Command(command);
 }

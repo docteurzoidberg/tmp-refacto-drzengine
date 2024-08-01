@@ -17,6 +17,7 @@ namespace drz::graphics {
   //Color class-like struct (from olc::pge)
   #pragma region Color
 
+  /// @brief Color data structure used in all graphics methods
   struct Color {
     union {
       uint32_t n = defaultColor;
@@ -49,6 +50,7 @@ namespace drz::graphics {
   Color ColorF(float red, float green, float blue, float alpha = 1.0f);
   Color ColorLerp(const Color& p1, const Color& p2, float t);
 
+  /// @brief Predefined colors
   static const Color
     GREY(192, 192, 192), 
     DARK_GREY(128, 128, 128), 
@@ -200,6 +202,10 @@ namespace drz::graphics {
     float x, y, z, w;
   };
 
+  struct vi2d {
+    int x, y;
+  };
+
   struct face {
     int f[3];
   };
@@ -234,7 +240,61 @@ namespace drz::graphics {
       uint8_t yAdvance;       // Newline distance (y axis)
     };
 
-  #pragma endregion
+  #pragma endregion //Font stuff
 
+  #pragma region Sprite
+
+  class Sprite {
+    public:
+      Sprite();
+      Sprite(int w, int h);
+      Sprite(int w, int h, const uint32_t* data);
+  };
+
+  #pragma endregion //Sprite
 
 } // namespace drz::graphics
+
+namespace drz {
+
+  using namespace graphics;
+
+  #pragma region IDrzGraphics
+  class IDrzGraphics {
+    public: 
+
+      virtual void Clear(Color color) = 0;
+      
+      virtual bool DrawPixel(int x, int y, Color color) = 0;
+      virtual void DrawLine(int x1, int y1, int x2, int y2, Color color) = 0;
+      virtual void DrawRect(int x, int y, int width, int height, Color color) = 0;
+      virtual void DrawTriangle(int x1, int y1, int x2, int y2, int x3, int y3, Color color) = 0;
+      virtual void DrawText(std::string text, int x, int y, Color color) = 0;
+      
+      virtual void DrawPartialSprite(int x, int y, Sprite* sprite, int ox, int oy, int w, int h) = 0;
+      virtual void DrawPartialSprite(vi2d pos, Sprite* sprite, vi2d srcPos, vi2d size) = 0;
+
+      virtual void FillRect(int x, int y, int width, int height,Color color) = 0;
+      virtual void FillCircle(int x, int y, int radius, Color color) = 0;
+      virtual void FillTriangle(int x1, int y1, int x2, int y2, int x3, int y3, Color color) = 0;
+      
+      virtual int GetScreenWidth() = 0;
+      virtual int GetScreenHeight() = 0;
+  };
+
+  #pragma endregion // IDrzGraphics
+  
+  #pragma region DrzGraphics
+
+  class DrzGraphics {
+    public:
+      static IDrzGraphics* Get();
+      static void Set(IDrzGraphics* graphics);
+
+    private:
+      inline static IDrzGraphics* instance = nullptr;
+  };
+
+  #pragma endregion // DrzGraphics
+
+} // namespace drz
