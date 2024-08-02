@@ -71,6 +71,23 @@ void DrzEngine_PGE::LoadFont(std::string fontName, font* f) {
   DrzGraphics::LoadFont(fontName, f);
 }
 
+void DrzEngine_PGE::SetPaintMode(Mode mode) {
+  if(mode == Mode::ALPHA)
+    pge->SetPixelMode(olc::Pixel::ALPHA);
+  else if(mode == Mode::MASK)
+    pge->SetPixelMode(olc::Pixel::MASK);
+  else if(mode == Mode::NORMAL)
+    pge->SetPixelMode(olc::Pixel::NORMAL);
+  else if(mode == Mode::CUSTOM)
+    pge->SetPixelMode(olc::Pixel::CUSTOM);
+  else
+    pge->SetPixelMode(olc::Pixel::NORMAL);
+}
+
+void DrzEngine_PGE::SetFont(font* font) {
+  DrzGraphics::SetFont(font);
+}
+
 void DrzEngine_PGE::SetFont(std::string fontName) {
   DrzGraphics::SetFont(fontName);
 }
@@ -96,7 +113,12 @@ void DrzEngine_PGE::DrawTriangle(int x1, int y1, int x2, int y2, int x3, int y3,
 }
 
 void DrzEngine_PGE::DrawText(std::string text, int x, int y, Color color) {
-  pge->DrawString(x, y, text, olc::Pixel(color.r, color.g, color.b, color.a));
+  //pge->DrawString(x, y, text, olc::Pixel(color.r, color.g, color.b, color.a));
+  DrzGraphics::DrawText(text, x, y, color);
+}
+
+void DrzEngine_PGE::DrawSprite(int32_t x, int32_t y, drz::graphics::Sprite* sprite) {
+  pge->DrawSprite(x, y, (olc::Sprite*)sprite, 1);
 }
 
 void DrzEngine_PGE::DrawPartialSprite(int32_t x, int32_t y, drz::graphics::Sprite* sprite, int32_t ox, int32_t oy, int32_t w, int32_t h) {
@@ -117,6 +139,10 @@ void DrzEngine_PGE::FillCircle(int x, int y, int radius, Color color) {
 
 void DrzEngine_PGE::FillTriangle(int x1, int y1, int x2, int y2, int x3, int y3, Color color) {
   pge->FillTriangle(x1, y1, x2, y2, x3, y3, olc::Pixel(color.r, color.g, color.b, color.a));
+}
+
+rect DrzEngine_PGE::GetTextBounds(const std::string& text, int x, int y) {
+  return DrzGraphics::GetTextBounds(text, x, y);
 }
 
 #pragma endregion

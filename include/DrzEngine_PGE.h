@@ -79,13 +79,20 @@ class DrzEngine_PGE : public IDrzGraphics, public IDrzInputs, public IDrzEngine
     void Clear(Color color) override;
 
     void LoadFont(std::string fontName, font* f) override;
+
+    void SetPaintMode(Mode mode) override;
     void SetFont(std::string fontName) override;
+    void SetFont(font* font) override;
+
+    rect GetTextBounds(const std::string& text, int x, int y) override;
 
     bool DrawPixel(int x, int y, Color color) override;
     void DrawLine(int x1, int y1, int x2, int y2, Color color) override;
     void DrawTriangle(int x1, int y1, int x2, int y2, int x3, int y3, Color color) override;
     void DrawText(std::string text, int x, int y, Color color) override;
     void DrawRect(int x, int y, int width, int height, Color color) override;
+
+    void DrawSprite(int32_t x, int32_t y, Sprite* sprite) override;
     void DrawPartialSprite(int32_t x, int32_t y, Sprite* sprite, int32_t ox, int32_t oy, int32_t w, int32_t h) override;
     void DrawPartialSprite(vi2d pos, Sprite* sprite, vi2d srcPos, vi2d size) override;
 

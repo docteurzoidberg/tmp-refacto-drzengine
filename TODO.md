@@ -1,15 +1,9 @@
 # DrzGraphics
 
-[ ] DrawSprite
-[ ] SetPaintMode
-[ ] SetFont
-[ ] GetTextBounds
+[ ] Matrix4x4::
 
 ## Sprite
 
-[ ] sprite class...
-[ ] SetSampleMode
-
 ## Model
 
-[ ] model class...
+[ ] Model class...

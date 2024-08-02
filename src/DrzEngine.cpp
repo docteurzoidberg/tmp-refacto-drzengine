@@ -12,6 +12,10 @@ DrzEngine::~DrzEngine() {
   std::cout << "DrzEngine destructor called" << std::endl;
 }
 
+IDrzEngine* DrzEngine::Get() {
+  return engine;
+}
+
 void DrzEngine::Set(IDrzEngine* engine) {
   std::cout << "DrzEngine::Set called" << std::endl;
   //set engine

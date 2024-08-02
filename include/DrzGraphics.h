@@ -1,8 +1,11 @@
 #pragma once
 
+#include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <algorithm>
 #include <map>
+#include <sys/types.h>
 
 namespace drz::graphics {
 
@@ -243,10 +246,86 @@ namespace drz::graphics {
   #pragma region Sprite
 
   class Sprite {
-    public:
-      Sprite();
-      Sprite(int w, int h);
-      Sprite(int w, int h, const uint32_t* data);
+
+  public:
+
+    int32_t width = 0;
+    int32_t height = 0;
+    enum Mode { NORMAL, PERIODIC, CLAMP };
+    enum Flip { NONE = 0, HORIZ = 1, VERT = 2 };
+    std::vector<Color> colData;
+    Mode modeSample = Mode::NORMAL;
+
+    Sprite();
+    Sprite(int32_t w, int32_t h);
+    Sprite(int32_t w, int32_t h, const unsigned int* data);
+    ~Sprite();
+
+    void SetSampleMode(Mode mode) { 
+      modeSample = mode; 
+    }
+
+    Color GetPixel(int32_t x, int32_t y) const
+    {
+      if (modeSample == Sprite::Mode::NORMAL)
+      {
+        if (x >= 0 && x < width && y >= 0 && y < height)
+          return colData[y * width + x];
+        else
+          return Color(0, 0, 0, 0);
+      }
+      else
+      {
+        if (modeSample == Sprite::Mode::PERIODIC)
+          return colData[abs(y % height) * width + abs(x % width)];
+        else
+          return colData[std::max(0, std::min(y, height-1)) * width + std::max(0, std::min(x, width-1))];
+      }
+    }
+
+    bool SetPixel(int32_t x, int32_t y, Color p)
+    {
+      if (x >= 0 && x < width && y >= 0 && y < height)
+      {
+        colData[y * width + x] = p;
+        return true;
+      }
+      else
+        return false;
+    }
+
+    Color Sample(float x, float y) const
+    {
+      int32_t sx = std::min((int32_t)((x * (float)width)), width - 1);
+      int32_t sy = std::min((int32_t)((y * (float)height)), height - 1);
+      return GetPixel(sx, sy);
+    }
+
+    Color SampleBL(float u, float v) const
+    {
+      u = u * width - 0.5f;
+      v = v * height - 0.5f;
+      int x = (int)floor(u); // cast to int rounds toward zero, not downward
+      int y = (int)floor(v); // Thanks @joshinils
+      float u_ratio = u - x;
+      float v_ratio = v - y;
+      float u_opposite = 1 - u_ratio;
+      float v_opposite = 1 - v_ratio;
+
+      Color p1 = GetPixel(std::max(x, 0), std::max(y, 0));
+      Color p2 = GetPixel(std::min(x + 1, (int)width - 1), std::max(y, 0));
+      Color p3 = GetPixel(std::max(x, 0), std::min(y + 1, (int)height - 1));
+      Color p4 = GetPixel(std::min(x + 1, (int)width - 1), std::min(y + 1, (int)height - 1));
+
+      return Color(
+        (uint8_t)((p1.r * u_opposite + p2.r * u_ratio) * v_opposite + (p3.r * u_opposite + p4.r * u_ratio) * v_ratio),
+        (uint8_t)((p1.g * u_opposite + p2.g * u_ratio) * v_opposite + (p3.g * u_opposite + p4.g * u_ratio) * v_ratio),
+        (uint8_t)((p1.b * u_opposite + p2.b * u_ratio) * v_opposite + (p3.b * u_opposite + p4.b * u_ratio) * v_ratio));
+    }
+
+    Color* GetData() {
+      return colData.data();
+    }
   };
 
   #pragma endregion Sprite
@@ -265,6 +344,9 @@ namespace drz {
       virtual void Clear(Color color) = 0;
 
       virtual void LoadFont(std::string fontName, font* f) = 0;
+
+      virtual void SetPaintMode(Mode mode) = 0;
+      virtual void SetFont(font* font) = 0;
       virtual void SetFont(std::string fontName) = 0;
       
       virtual bool DrawPixel(int x, int y, Color color) = 0;
@@ -272,7 +354,8 @@ namespace drz {
       virtual void DrawRect(int x, int y, int width, int height, Color color) = 0;
       virtual void DrawTriangle(int x1, int y1, int x2, int y2, int x3, int y3, Color color) = 0;
       virtual void DrawText(std::string text, int x, int y, Color color) = 0;
-      
+
+      virtual void DrawSprite(int x, int y, Sprite* sprite) = 0;
       virtual void DrawPartialSprite(int x, int y, Sprite* sprite, int ox, int oy, int w, int h) = 0;
       virtual void DrawPartialSprite(vi2d pos, Sprite* sprite, vi2d srcPos, vi2d size) = 0;
 
@@ -280,6 +363,8 @@ namespace drz {
       virtual void FillCircle(int x, int y, int radius, Color color) = 0;
       virtual void FillTriangle(int x1, int y1, int x2, int y2, int x3, int y3, Color color) = 0;
       
+      virtual rect GetTextBounds(const std::string& text, int x, int y) = 0;
+
       virtual int GetScreenWidth() = 0;
       virtual int GetScreenHeight() = 0;
   };
@@ -299,10 +384,30 @@ namespace drz {
       static void SetFont(font* f);
       static void SetFont(std::string fontName);
 
+      static void DrawText(const std::string& text, int x, int y, Color color);
+
+      static rect GetTextBounds(const std::string& text, int x, int y);
+
     private:
+      inline static int cursorX = 0;
+      inline static int cursorY = 0;
+      inline static bool textWrap = true;
+      inline static Color textFgColor = WHITE;
+      inline static Color textBgColor = BLACK;
       inline static IDrzGraphics* instance = nullptr;
       inline static std::map<std::string, font*> fonts;
       inline static font* currentFont = nullptr;
+
+      
+      inline static void _drawChar(uint16_t x, uint16_t y, unsigned char c, Color fg, Color bg);
+
+      inline static size_t _writeChar(unsigned char c);
+      inline static size_t _writeTextBuffer(const char *buffer, size_t size);
+      inline static size_t _writeText(const std::string &s);
+
+      inline static void _charBounds(unsigned char c, int16_t *x, int16_t *y, int16_t *minx, int16_t *miny, int16_t *maxx, int16_t *maxy);
+      inline static void _getTextBounds(const char *str, int16_t x, int16_t y, int16_t *x1, int16_t *y1, uint16_t *w, uint16_t *h);
+      inline static void _getTextBounds(const std::string &str, int16_t x, int16_t y, int16_t *x1, int16_t *y1, uint16_t *w, uint16_t *h);
   };
 
   #pragma endregion DrzGraphics
