@@ -1,23 +1,22 @@
 #pragma once
 
-#include <IDrzEngine.h>
-
-#include <DrzInputs.h>
-#include <DrzGraphics.h>
 #include <DrzEngine.h>
-
+#include <DrzGraphics.h>
+#include <DrzInputs.h>
+#include <DrzSerial.h>
 
 #include <olcPixelGameEngine.h>
 
+#include <chrono>
+
 namespace drz {
 
-
 /***
- * @brief PixelGameEngineApp is a wrapper for olc::PixelGameEngine
+ * @brief PixelGameEngineApp is the private wrapper class for olc::PixelGameEngine
 */
 class PixelGameEngineApp : public olc::PixelGameEngine
 {
-public:
+  public:
     bool OnUserCreate() override
     {
       // Called once at the start, so create things here
@@ -55,9 +54,10 @@ public:
     }
 };
 
-
 /***
- * @brief DrzEngine_PGE is a olc::PixelGameEngine implementation of DrzEngine
+ * @brief DrzEngine_PGE is a multiplatform implementation of DrzEngine using olc::PixelGameEngine for graphics and inputs.
+    can be used on linux, windows, and wasm platforms
+    it uses either SerialLinux, SerialWindows or SerialNone for serial communication respectively
 */
 class DrzEngine_PGE : public IDrzGraphics, public IDrzInputs, public IDrzEngine
 {
@@ -71,6 +71,8 @@ class DrzEngine_PGE : public IDrzGraphics, public IDrzInputs, public IDrzEngine
     void Setup() override;
     void Start() override;
 
+    uint32_t Now() override;
+
     #pragma endregion // DrzEngine
 
     //Graphics impl.---------------------------------------------
@@ -78,7 +80,7 @@ class DrzEngine_PGE : public IDrzGraphics, public IDrzInputs, public IDrzEngine
 
     void Clear(Color color) override;
 
-    void LoadFont(std::string fontName, font* f) override;
+    void LoadFont(const std::string& fontName, font* font) override;
 
     void SetPaintMode(Mode mode) override;
     void SetFont(std::string fontName) override;
@@ -114,11 +116,17 @@ class DrzEngine_PGE : public IDrzGraphics, public IDrzInputs, public IDrzEngine
 
     #pragma endregion // IDrzInputs
 
+    PixelGameEngineApp* pge;//pge does inputs and graphics
   private:
-    PixelGameEngineApp* pge;
+    
+    //serial can be either linux. windows or none with pge platform
+    IDrzSerial* serial;
+
     int width;
     int height;
     int pixelSize;
+
+    std::chrono::time_point<std::chrono::high_resolution_clock> start;
 };
 
 } // namespace drz

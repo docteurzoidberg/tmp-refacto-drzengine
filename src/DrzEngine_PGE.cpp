@@ -1,10 +1,26 @@
-#include "DrzGraphics.h"
-#include "DrzInputs.h"
 #include <DrzEngine_PGE.h>
+#include <DrzGraphics.h>
+#include <DrzInputs.h>
+#include <DrzSerial.h>
+
+#include <IDrzSerial.h>
+
 #include <cstdint>
 
 #define OLC_PGE_APPLICATION
 #include <olcPixelGameEngine.h>
+
+#ifdef _WIN32
+#include <DrzSerial_Win.h>
+#endif
+
+#ifdef __EMSCRIPTEN__
+#include <DrzSerial_Null.h>
+#endif
+
+#ifdef __linux__
+#include <DrzSerial_Linux.h>
+#endif
 
 using namespace drz;
 
@@ -20,6 +36,16 @@ DrzEngine_PGE::DrzEngine_PGE(int width, int height, int pixelSize) : width(width
   DrzInputs::Set(this);
 
   //TODO: set serial class
+  
+  #ifdef _WIN32
+    new DrzSerial_Win();
+  #elif __linux__
+  //TODO: include linux serial
+    new DrzSerial_Linux();
+  #elif __EMSCRIPTEN__
+  //TODO: include null serial
+  #endif
+
   //TODO: set audio class
 }
 
@@ -27,6 +53,8 @@ DrzEngine_PGE::DrzEngine_PGE(int width, int height, int pixelSize) : width(width
 
 DrzEngine_PGE::~DrzEngine_PGE() {
   std::cout << "DrzEngine_PGE destructor called" << std::endl;
+  //start chrono
+
 }
 
 float DrzEngine_PGE::GetRandomFloat() {
@@ -34,19 +62,25 @@ float DrzEngine_PGE::GetRandomFloat() {
   return static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX);
 }
 
+uint32_t DrzEngine_PGE::Now() {
+  auto now = std::chrono::high_resolution_clock::now();
+  auto duration = std::chrono::duration_cast<std::chrono::microseconds>(now - start);
+  return duration.count();
+}
+
 void DrzEngine_PGE::Setup() {
   std::cout << "DrzEngine_PGE::Setup called" << std::endl;
   if(!pge->Construct(width, height, pixelSize, pixelSize)) {
     std::cerr << "Failed to construct PGE" << std::endl;
   }
-  pge->ConsoleCaptureStdOut(true);
+  //pge->ConsoleCaptureStdOut(true);
 }
 
 void DrzEngine_PGE::Start() {
   std::cout << "DrzEngine_PGE::Start called" << std::endl;
   //start pge loop
+  start = std::chrono::high_resolution_clock::now();
   pge->Start();
-  //TODO call started callback
 }
 
 #pragma endregion
@@ -67,7 +101,7 @@ HardwareButton DrzEngine_PGE::GetKey(Key key) {
 
 #pragma region IDrzGraphics
 
-void DrzEngine_PGE::LoadFont(std::string fontName, font* f) {
+void DrzEngine_PGE::LoadFont(const std::string& fontName, font* f) {
   DrzGraphics::LoadFont(fontName, f);
 }
 
@@ -114,7 +148,14 @@ void DrzEngine_PGE::DrawTriangle(int x1, int y1, int x2, int y2, int x3, int y3,
 
 void DrzEngine_PGE::DrawText(std::string text, int x, int y, Color color) {
   //pge->DrawString(x, y, text, olc::Pixel(color.r, color.g, color.b, color.a));
-  DrzGraphics::DrawText(text, x, y, color);
+    auto currentFont = DrzGraphics::GetFont();
+    if(currentFont==nullptr) {
+      std::cout << "[!] No font set" << std::endl;
+      return;
+    } 
+    DrzGraphics::SetCursorPos((int) x, (int) y);
+    DrzGraphics::SetTextForegroundColor(color);
+    DrzGraphics::DrawText(text, x, y, color);
 }
 
 void DrzEngine_PGE::DrawSprite(int32_t x, int32_t y, drz::graphics::Sprite* sprite) {

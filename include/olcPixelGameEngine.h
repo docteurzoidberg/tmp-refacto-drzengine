@@ -922,7 +922,7 @@ namespace olc
     virtual olc::rcode DestroyDevice() = 0;
     virtual void       DisplayFrame() = 0;
     virtual void       PrepareDrawing() = 0;
-    virtual void	   SetDecalMode(const olc::DecalMode& mode) = 0;
+    virtual void	     SetDecalMode(const olc::DecalMode& mode) = 0;
     virtual void       DrawLayerQuad(const olc::vf2d& offset, const olc::vf2d& scale, const olc::Pixel tint) = 0;
     virtual void       DrawDecal(const olc::DecalInstance& decal) = 0;
     virtual uint32_t   CreateTexture(const uint32_t width, const uint32_t height, const bool filtered = false, const bool clamp = true) = 0;

@@ -38,7 +38,25 @@ namespace drz {
     }
   }
 
-  void DrzGraphics::LoadFont(std::string fontName, font* f) {
+  void DrzGraphics::SetCursorPos(int x, int y) {
+    cursorX = x;
+    cursorY = y;
+  }
+
+  void DrzGraphics::SetTextColor(Color fg, Color bg) {
+    DrzGraphics::SetTextForegroundColor(fg);
+    DrzGraphics::SetTextBackgroundColor(bg);
+  }
+  
+  void DrzGraphics::SetTextForegroundColor(Color color) {
+    textFgColor = color;
+  }
+
+  void DrzGraphics::SetTextBackgroundColor(Color color) {
+    textBgColor = color;
+  }
+
+  void DrzGraphics::LoadFont(const std::string& fontName, font* f) {
     //add font to map
     fonts[fontName] = f;
   }  
@@ -59,6 +77,8 @@ namespace drz {
       return;
     }
     //call internal method
+    SetCursorPos(x, y);
+    SetTextForegroundColor(color);
     _writeText(text);
   }
 

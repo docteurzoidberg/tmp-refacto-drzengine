@@ -37,13 +37,15 @@ void DrzEngine::Setup() {
 }
 
 void DrzEngine::Loop(float elapsedTime) {
-  std::cout << "DrzEngine::Loop called" << std::endl;
+  //std::cout << "DrzEngine::Loop called" << std::endl;
   if(engine==nullptr) {
     std::cerr << "Engine is null" << std::endl;
     return;
   }
-  //call loop callback
-  //loopCallBack(elapsedTime);
+  if(app==nullptr) {
+    std::cerr << "App is null" << std::endl;
+    return;
+  }
   app->Update(elapsedTime);
 }
 

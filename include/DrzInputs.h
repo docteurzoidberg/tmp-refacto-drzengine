@@ -2,7 +2,7 @@
 
 namespace drz::inputs {
 
-  ///Input keys (taken from olcPixelGameEngine.h)
+  ///input key enum
   enum Key {
     NONE,
     A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z,
@@ -18,8 +18,8 @@ namespace drz::inputs {
     CAPS_LOCK, ENUM_END
   };
 
-  struct HardwareButton
-  {
+  ///struct to hold the state of a hardware button
+  struct HardwareButton {
     bool isPressed;
     bool isReleased;
     bool isHeld;
@@ -32,18 +32,21 @@ namespace drz {
 
 using namespace inputs;
 
-class IDrzInputs
-{
+/***
+ * @brief IDrzInputs: interface for DrzInputs platform libraries
+ */
+class IDrzInputs {
   public:
     virtual HardwareButton GetKey(Key key) = 0;
-
 };
 
+/***
+ * @brief DrzInputs is the main static inputs class to acces IDrzInputs implementations
+*/
 class DrzInputs {
   public:
     static IDrzInputs* Get();
     static void Set(IDrzInputs* inputs);
-
   private:
     inline static IDrzInputs* instance = nullptr;
 };

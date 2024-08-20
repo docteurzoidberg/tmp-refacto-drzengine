@@ -6,6 +6,7 @@ using namespace drz;
 
 TestApp::TestApp() {
   std::cout << "TestApp constructor called" << std::endl;
+  gfx = DrzGraphics::Get();
 }
 
 TestApp::~TestApp() {
@@ -18,7 +19,6 @@ void TestApp::Setup() {
   //DisplayPage * roadPage = new RoadPage();
   //DrzEngine::AddDisplayPage(roadPage);
   //DrzEngine::SetCurrentDisplayPage(roadPage);
-  gfx = DrzGraphics::Get();
 }
 
 void TestApp::Update(float elapsedTime) {

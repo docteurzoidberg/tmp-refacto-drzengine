@@ -10,15 +10,18 @@
 namespace drz::graphics {
 
   #pragma region Constants
+
   constexpr uint8_t  defaultAlpha = 0xFF;
   constexpr uint32_t defaultColor = (defaultAlpha << 24);
+  
   #pragma endregion
 
   #pragma region Enums
+
   enum Mode { NORMAL, MASK, ALPHA, CUSTOM };
+
   #pragma endregion
 
-  //Color class-like struct (from olc::pge)
   #pragma region Color
 
   /// @brief Color data structure used in all graphics methods
@@ -218,6 +221,11 @@ namespace drz::graphics {
     Color color;
   };
 
+  struct triangleref {
+    vec3d* p[3];
+    Color color;
+  };
+
   #pragma endregion Structs
 
   #pragma region Fonts
@@ -330,6 +338,223 @@ namespace drz::graphics {
 
   #pragma endregion Sprite
 
+  #pragma region Model
+
+
+  class Vector {
+    public:
+      static vec3d Add(vec3d &v1, vec3d &v2) {
+        return { v1.x + v2.x, v1.y + v2.y, v1.z + v2.z };
+      }
+
+      static vec3d Sub(vec3d &v1, vec3d &v2) {
+        return { v1.x - v2.x, v1.y - v2.y, v1.z - v2.z };
+      }
+
+      static vec3d Mul(vec3d &v1, float k) {
+        return { v1.x * k, v1.y * k, v1.z * k };
+      }
+
+      static vec3d Div(vec3d &v1, float k) {
+        return { v1.x / k, v1.y / k, v1.z / k };
+      }
+
+      static float DotProduct(vec3d &v1, vec3d &v2) {
+        return v1.x*v2.x + v1.y*v2.y + v1.z * v2.z;
+      }
+
+      static float Length(vec3d &v) {
+        return sqrtf(DotProduct(v, v));
+      }
+
+      static vec3d Normalise(vec3d &v) {
+        float l = Length(v);
+        return { v.x / l, v.y / l, v.z / l };
+      }
+
+      static vec3d CrossProduct(vec3d &v1, vec3d &v2) {
+        vec3d v;
+        v.x = v1.y * v2.z - v1.z * v2.y;
+        v.y = v1.z * v2.x - v1.x * v2.z;
+        v.z = v1.x * v2.y - v1.y * v2.x;
+        return v;
+      }
+
+      static vec3d IntersectPlane(vec3d &plane_p, vec3d &plane_n, vec3d &lineStart, vec3d &lineEnd) {
+        plane_n = Normalise(plane_n);
+        float plane_d = -DotProduct(plane_n, plane_p);
+        float ad = DotProduct(lineStart, plane_n);
+        float bd =DotProduct(lineEnd, plane_n);
+        float t = (-plane_d - ad) / (bd - ad);
+        vec3d lineStartToEnd = Sub(lineEnd, lineStart);
+        vec3d lineToIntersect = Mul(lineStartToEnd, t);
+        return Add(lineStart, lineToIntersect);
+      }
+  };
+
+
+  class Matrix4x4 {
+    public:
+      float m[4][4];
+
+      static Matrix4x4 Identity() {
+        Matrix4x4 matrix = {};
+        for (int i = 0; i < 4; ++i) matrix.m[i][i] = 1.0f;
+        return matrix;
+      }
+
+      static void MultiplyVector(Matrix4x4& m, const vec3d& i, vec3d& o) {
+        o.x = i.x * m.m[0][0] + i.y * m.m[1][0] + i.z * m.m[2][0] + m.m[3][0];
+        o.y = i.x * m.m[0][1] + i.y * m.m[1][1] + i.z * m.m[2][1] + m.m[3][1];
+        o.z = i.x * m.m[0][2] + i.y * m.m[1][2] + i.z * m.m[2][2] + m.m[3][2];
+        float w = i.x * m.m[0][3] + i.y * m.m[1][3] + i.z * m.m[2][3] + m.m[3][3];
+        if (w != 0.0f) {
+          o.x /= w; o.y /= w; o.z /= w;
+        }
+      }	
+
+      static Matrix4x4 CreateRotationMatrixX(float angle) {
+        Matrix4x4 matrix = Matrix4x4::Identity();
+        matrix[1][1] = cos(angle);
+        matrix[1][2] = -sin(angle);
+        matrix[2][1] = sin(angle);
+        matrix[2][2] = cos(angle);
+        return matrix;
+      }
+
+      static Matrix4x4 CreateRotationMatrixY(float angle) {
+        Matrix4x4 matrix = Matrix4x4::Identity();
+        matrix[0][0] = cos(angle);
+        matrix[0][2] = sin(angle);
+        matrix[2][0] = -sin(angle);
+        matrix[2][2] = cos(angle);
+        return matrix;
+      }
+
+      static Matrix4x4 CreateRotationMatrixZ(float angle) {
+        Matrix4x4 matrix = Matrix4x4::Identity();
+        matrix[0][0] = cos(angle);
+        matrix[0][1] = -sin(angle);
+        matrix[1][0] = sin(angle);
+        matrix[1][1] = cos(angle);
+        return matrix;
+      }
+
+      static Matrix4x4 CreateRotationMatrix(float angleX, float angleY, float angleZ) {
+        Matrix4x4 matrixX = Matrix4x4::CreateRotationMatrixX(angleX);
+        Matrix4x4 matrixY = Matrix4x4::CreateRotationMatrixY(angleY);
+        Matrix4x4 matrixZ = Matrix4x4::CreateRotationMatrixZ(angleZ);
+        return matrixZ * matrixY * matrixX;
+      }
+
+      static Matrix4x4 CreateTranslationMatrix(float x, float y, float z) {
+        Matrix4x4 matrix = Matrix4x4::Identity();
+        matrix[0][3] = x;
+        matrix[1][3] = y;
+        matrix[2][3] = z;
+        return matrix;
+      }
+
+      static Matrix4x4 MultiplyMatrix(Matrix4x4 &m1, Matrix4x4 &m2) {
+        Matrix4x4 matrix;
+        for (int c = 0; c < 4; c++)
+          for (int r = 0; r < 4; r++)
+            matrix.m[r][c] = m1.m[r][0] * m2.m[0][c] + m1.m[r][1] * m2.m[1][c] + m1.m[r][2] * m2.m[2][c] + m1.m[r][3] * m2.m[3][c];
+        return matrix;
+      }
+
+      static Matrix4x4 PointAt(vec3d &pos, vec3d &target, vec3d &up) {
+        // Calculate new forward direction
+        vec3d newForward = Vector::Sub(target, pos);
+        newForward = Vector::Normalise(newForward);
+
+        // Calculate new Up direction
+        vec3d a = Vector::Mul(newForward, Vector::DotProduct(up, newForward));
+        vec3d newUp = Vector::Sub(up, a);
+        newUp = Vector::Normalise(newUp);
+
+        // New Right direction is easy, its just cross product
+        vec3d newRight = Vector::CrossProduct(newUp, newForward);
+
+        // Construct Dimensioning and Translation Matrix	
+        Matrix4x4 matrix;
+        matrix.m[0][0] = newRight.x;	matrix.m[0][1] = newRight.y;	matrix.m[0][2] = newRight.z;	matrix.m[0][3] = 0.0f;
+        matrix.m[1][0] = newUp.x;		matrix.m[1][1] = newUp.y;		matrix.m[1][2] = newUp.z;		matrix.m[1][3] = 0.0f;
+        matrix.m[2][0] = newForward.x;	matrix.m[2][1] = newForward.y;	matrix.m[2][2] = newForward.z;	matrix.m[2][3] = 0.0f;
+        matrix.m[3][0] = pos.x;			matrix.m[3][1] = pos.y;			matrix.m[3][2] = pos.z;			matrix.m[3][3] = 1.0f;
+        return matrix;
+
+      }
+
+      // Only for Rotation/Translation Matrices
+      static Matrix4x4 QuickInverse(Matrix4x4 &m) {
+        Matrix4x4 matrix;
+        matrix.m[0][0] = m.m[0][0]; matrix.m[0][1] = m.m[1][0]; matrix.m[0][2] = m.m[2][0]; matrix.m[0][3] = 0.0f;
+        matrix.m[1][0] = m.m[0][1]; matrix.m[1][1] = m.m[1][1]; matrix.m[1][2] = m.m[2][1]; matrix.m[1][3] = 0.0f;
+        matrix.m[2][0] = m.m[0][2]; matrix.m[2][1] = m.m[1][2]; matrix.m[2][2] = m.m[2][2]; matrix.m[2][3] = 0.0f;
+        matrix.m[3][0] = -(m.m[3][0] * matrix.m[0][0] + m.m[3][1] * matrix.m[1][0] + m.m[3][2] * matrix.m[2][0]);
+        matrix.m[3][1] = -(m.m[3][0] * matrix.m[0][1] + m.m[3][1] * matrix.m[1][1] + m.m[3][2] * matrix.m[2][1]);
+        matrix.m[3][2] = -(m.m[3][0] * matrix.m[0][2] + m.m[3][1] * matrix.m[1][2] + m.m[3][2] * matrix.m[2][2]);
+        matrix.m[3][3] = 1.0f;
+        return matrix;
+      }
+
+      Matrix4x4 operator*(const Matrix4x4& other) const {
+        Matrix4x4 result = {};
+        for (int i = 0; i < 4; ++i) {
+          for (int j = 0; j < 4; ++j) {
+            for (int k = 0; k < 4; ++k) {
+              result.m[i][j] += m[i][k] * other.m[k][j];
+            }
+          }
+        }
+        return result;
+      }
+
+      float* operator[](int index) { return m[index]; }
+      const float* operator[](int index) const { return m[index]; }
+  };
+
+  //Base class to load a 3d model
+  class Model {
+    public:
+      Model(std::vector<vec3d>* verts, std::vector<face>* faces) : verts(verts), faces(faces){}
+
+      virtual void Update(float fElapsedTime) = 0;
+
+      void SetupModel() {
+        //std::cout << "Vert count: " << verts->size() << std::endl;
+        //std::cout << "Face count: " << faces->size() << std::endl;
+        //std::cout << "Loading model" << std::endl;
+        _loadTriRefs();
+        //std::cout << "Model loaded with " << tris.size() << " triangles" << std::endl;
+      }
+
+      std::vector<vec3d>* verts;
+      std::vector<face>* faces;
+      std::vector<triangleref> tris;
+
+
+      Matrix4x4 rotationMatrix;
+      Matrix4x4 translationMatrix;
+        
+    private:
+      void _loadTriRefs() {
+        for (int i=0; i<faces->size(); i++) {
+          face* f = &faces->at(i);
+          vec3d* p0 = &verts->at(f->f[0] - 1);
+          vec3d* p1 = &verts->at(f->f[1] - 1);
+          vec3d* p2 = &verts->at(f->f[2] - 1);
+          tris.push_back({
+            p0, p1, p2
+          });
+        } 
+      }
+  };
+
+
+  #pragma endregion Model
+
 } // namespace drz::graphics
 
 namespace drz {
@@ -343,7 +568,7 @@ namespace drz {
 
       virtual void Clear(Color color) = 0;
 
-      virtual void LoadFont(std::string fontName, font* f) = 0;
+      virtual void LoadFont(const std::string& fontName, font* font) = 0;
 
       virtual void SetPaintMode(Mode mode) = 0;
       virtual void SetFont(font* font) = 0;
@@ -378,11 +603,17 @@ namespace drz {
       static IDrzGraphics* Get();
       static void Set(IDrzGraphics* graphics);
 
-      static void LoadFont(std::string fontName, font* f);
+      static void LoadFont(const std::string& fontName, font* f);
       static font* GetFont();
       static font* GetFont(std::string fontName);
       static void SetFont(font* f);
       static void SetFont(std::string fontName);
+
+      static void SetCursorPos(int x, int y);
+      static void SetTextWrap(bool wrap);
+      static void SetTextColor(Color fg, Color bg);
+      static void SetTextForegroundColor(Color fg);
+      static void SetTextBackgroundColor(Color bg);
 
       static void DrawText(const std::string& text, int x, int y, Color color);
 
@@ -398,7 +629,6 @@ namespace drz {
       inline static std::map<std::string, font*> fonts;
       inline static font* currentFont = nullptr;
 
-      
       inline static void _drawChar(uint16_t x, uint16_t y, unsigned char c, Color fg, Color bg);
 
       inline static size_t _writeChar(unsigned char c);

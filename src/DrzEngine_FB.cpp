@@ -1,4 +1,6 @@
+#include "DrzSerial_Linux.h"
 #include <DrzEngine_FB.h>
+
 #include <iostream>
 #include <signal.h>
 
@@ -14,9 +16,14 @@ DrzEngine_FB::DrzEngine_FB(int width, int height) : width(width), height(height)
   //set graphic class
   DrzGraphics::Set(this);
 
-  //TODO: set input class
-  //TODO: set serial class
-  //TODO: set audio class
+  //Load serial class
+  new DrzSerial_Linux();
+
+  //TODO: load input class
+  //new DrzInputs_hidraw();
+
+  //TODO: load audio class
+  //new DrzSam_Miniaudio();
 }
 
 DrzEngine_FB::~DrzEngine_FB() {
@@ -25,6 +32,10 @@ DrzEngine_FB::~DrzEngine_FB() {
 
 void DrzEngine_FB::Setup() {
   std::cout << "DrzEngine_FB::Setup called" << std::endl;
+  //TODO: Setup inputs
+  std::cout << "TODO: setup inputs" << std::endl;
+  //TODO: Setup framebuffer
+  std::cout << "TODO: setup framebuffer" << std::endl;
 }
 
 void DrzEngine_FB::Start() {
@@ -34,7 +45,7 @@ void DrzEngine_FB::Start() {
   signal(SIGINT, DrzEngine::SignalHandler);
 
   //TODO open framebuffer
-  std::cout << "TODO: setup framebuffer" << std::endl;
+  std::cout << "TODO: start framebuffer output" << std::endl;
   //keep elapsing time
   float elapsedTime = 0.0f; 
 
@@ -49,30 +60,6 @@ void DrzEngine_FB::Start() {
   }
 }
 
-bool DrzEngine_FB::DrawPixel(int x, int y, Color color) {
-  //TODO
-  return true;
-}
-
-void DrzEngine_FB::DrawLine(int x1, int y1, int x2, int y2, Color color) {
-  //TODO
-}
-
-void DrzEngine_FB::DrawTriangle(int x1, int y1, int x2, int y2, int x3, int y3, Color color) {
-  //TODO
-}
-
-void DrzEngine_FB::DrawText(std::string text, int x, int y, Color color) {
-  //TODO
-}
-
-void DrzEngine_FB::FillCircle(int x, int y, int radius, Color color) {
-  //TODO
-}
-
-void DrzEngine_FB::FillTriangle(int x1, int y1, int x2, int y2, int x3, int y3, Color color) {
-  //TODO
-}
-
+//TODO: implement all graphics functions
 
 
