@@ -1,0 +1,18 @@
+cmake_minimum_required(VERSION 3.10)
+cmake_policy(SET CMP0077 NEW)
+project(myproject VERSION 0.1.0 LANGUAGES CXX)
+
+set(CMAKE_VERBOSE_MAKEFILE ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+set(CMAKE_CXX_STANDARD 20)
+
+set(DRZENGINE_LIB_DIR /home/youruser/drzengine)
+
+# Set options to not build tests, examples, or documentation for the library
+set(BUILD_PGELIB OFF)
+set(BUILD_FBLIB OFF)
+set(BUILD_DOC OFF)
+set(BUILD_TEST_APPS OFF)
+
+
