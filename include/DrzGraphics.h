@@ -622,7 +622,7 @@ namespace drz {
     private:
       inline static int cursorX = 0;
       inline static int cursorY = 0;
-      inline static bool textWrap = true;
+      inline static bool textWrap = false;
       inline static Color textFgColor = WHITE;
       inline static Color textBgColor = BLACK;
       inline static IDrzGraphics* instance = nullptr;

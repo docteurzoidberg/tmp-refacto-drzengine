@@ -29,6 +29,7 @@ void DrzEngine::Setup() {
     return;
   } 
   engine->Setup();
+  
   if(app==nullptr) {
     std::cerr << "App is null" << std::endl;
     return;  

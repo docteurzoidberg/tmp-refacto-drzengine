@@ -22,7 +22,6 @@ int main(){
 
   serial = DrzSerial::Get();
 
-
   testapp = new TestApp();
 
   serial->SetPort("/dev/pts/1");

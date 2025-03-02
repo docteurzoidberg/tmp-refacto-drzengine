@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 
 namespace drz {
 
@@ -14,6 +15,7 @@ class IDrzEngine
     virtual ~IDrzEngine() = default;
     virtual void Setup() = 0;
     virtual void Start() = 0;
+    virtual void SetTitle(const std::string& title) = 0;
 
     virtual uint32_t Now() = 0;
     virtual float GetRandomFloat() = 0;

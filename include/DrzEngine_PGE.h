@@ -20,7 +20,7 @@ class PixelGameEngineApp : public olc::PixelGameEngine
     bool OnUserCreate() override
     {
       // Called once at the start, so create things here
-      DrzEngine::Setup();
+      //DrzEngine::Setup();
       return true;
     }
 
@@ -70,6 +70,7 @@ class DrzEngine_PGE : public IDrzGraphics, public IDrzInputs, public IDrzEngine
     ~DrzEngine_PGE();
     void Setup() override;
     void Start() override;
+    void SetTitle(const std::string& title) override;
 
     uint32_t Now() override;
 
@@ -117,6 +118,8 @@ class DrzEngine_PGE : public IDrzGraphics, public IDrzInputs, public IDrzEngine
     #pragma endregion // IDrzInputs
 
     PixelGameEngineApp* pge;//pge does inputs and graphics
+
+
   private:
     
     //serial can be either linux. windows or none with pge platform

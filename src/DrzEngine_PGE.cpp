@@ -1,3 +1,10 @@
+#include <chrono>
+#ifdef _WIN32
+#include <windows.h>
+#undef DrawText
+#undef SetPort
+#endif
+
 #include <DrzEngine_PGE.h>
 #include <DrzGraphics.h>
 #include <DrzInputs.h>
@@ -11,7 +18,7 @@
 #include <olcPixelGameEngine.h>
 
 #ifdef _WIN32
-#include <DrzSerial_Win.h>
+//#include <DrzSerial_Win.h>
 #endif
 
 #ifdef __EMSCRIPTEN__
@@ -38,7 +45,7 @@ DrzEngine_PGE::DrzEngine_PGE(int width, int height, int pixelSize) : width(width
   //TODO: set serial class
   
   #ifdef _WIN32
-    new DrzSerial_Win();
+    //new DrzSerial_Win();
   #elif __linux__
   //TODO: include linux serial
     new DrzSerial_Linux();
@@ -64,7 +71,7 @@ float DrzEngine_PGE::GetRandomFloat() {
 
 uint32_t DrzEngine_PGE::Now() {
   auto now = std::chrono::high_resolution_clock::now();
-  auto duration = std::chrono::duration_cast<std::chrono::microseconds>(now - start);
+  auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - start);
   return duration.count();
 }
 
@@ -73,6 +80,7 @@ void DrzEngine_PGE::Setup() {
   if(!pge->Construct(width, height, pixelSize, pixelSize)) {
     std::cerr << "Failed to construct PGE" << std::endl;
   }
+  pge->sAppName = "DrzEngine";
   //pge->ConsoleCaptureStdOut(true);
 }
 
@@ -81,6 +89,10 @@ void DrzEngine_PGE::Start() {
   //start pge loop
   start = std::chrono::high_resolution_clock::now();
   pge->Start();
+}
+
+void DrzEngine_PGE::SetTitle(const std::string& title) {
+  pge->sAppName = title;
 }
 
 #pragma endregion

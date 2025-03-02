@@ -22,7 +22,7 @@ void TestApp::Setup() {
 }
 
 void TestApp::Update(float elapsedTime) {
-  std::cout << "TestApp::Update called" << std::endl;
+  //std::cout << "TestApp::Update called" << std::endl;
 
   //Draw pixels using graphics
   //auto gfx = DrzGraphics::Get();
