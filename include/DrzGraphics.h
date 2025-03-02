@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <map>
 #include <sys/types.h>
+#include <vector>
 
 namespace drz::graphics {
 
