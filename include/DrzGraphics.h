@@ -7,6 +7,7 @@
 #include <map>
 #include <sys/types.h>
 #include <vector>
+#include <string>
 
 namespace drz::graphics {
 
