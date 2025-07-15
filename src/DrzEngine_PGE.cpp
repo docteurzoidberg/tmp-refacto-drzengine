@@ -14,6 +14,14 @@
 
 #include <cstdint>
 
+
+#ifdef USE_FBGPLATFORM
+  #include <FramebufferPlatform.h>
+  #undef OLC_PLATFORM_CUSTOM_EX
+  #define OLC_PLATFORM_CUSTOM_EX LinuxFBGPlatform
+  #define OLC_RENDERER_CUSTOM_EX LinuxFBGRenderer
+#endif
+
 #define OLC_PGE_APPLICATION
 #include <olcPixelGameEngine.h>
 

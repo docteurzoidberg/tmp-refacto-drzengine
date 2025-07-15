@@ -1,6 +1,6 @@
 #pragma once
-
 #include <DrzGraphics.h>
+#include <DrzEngine.h>
 
 #include <cstdint>
 #include <string>
@@ -29,6 +29,7 @@ class TestApp: public IDrzEngineApp {
     bool Command(const std::string& command);
     bool Data(const uint8_t* data, size_t size);
     IDrzGraphics* gfx;
+    IDrzEngine* engine;
 };
 
 } // namespace drz

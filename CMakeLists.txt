@@ -1,23 +1,29 @@
 cmake_minimum_required(VERSION 3.5.0)
 cmake_policy(SET CMP0077 NEW)
-project(drzengine VERSION 0.1.0 LANGUAGES CXX)
+project(drzengine VERSION 0.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+set(CMAKE_C_STANDARD 99)
+
+set(FBGRAPHICS_LIB_DIR ${CMAKE_CURRENT_SOURCE_DIR}/lib/fb)
+
 # first we can indicate the documentation build as an option and set it to ON by default
 option(BUILD_PGELIB "Build PGE library" ON)
-option(BUILD_FBLIB "Build FB library" OFF)
+option(BUILD_PGEFBLIB "Build PGEFB library" ON)
 option(BUILD_DOC "Build documentation" ON)
 option(BUILD_TEST_APPS "Build test apps" ON)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
-
+include_directories(${FBGRAPHICS_LIB_DIR}/include)
 
 set(SOURCES
   src/DrzEngine.cpp
   src/DrzGraphics.cpp
   src/DrzInputs.cpp
+  src/Widget.cpp
+  src/DisplayPageManager.cpp
 )
 
 if(BUILD_PGELIB) 
@@ -27,10 +33,18 @@ if(BUILD_PGELIB)
   #TODO: add support for others platform using olc::pge like emscripten and windows here
 endif()
 
-if(BUILD_FBLIB)
-  add_library(drzenginefb ${SOURCES} src/DrzEngine_FB.cpp)
-  target_include_directories(drzenginefb PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+if(BUILD_PGEFBLIB)
+  #Include the additional FBG's source directories
+  file(GLOB FBG_SOURCES ${FBGRAPHICS_LIB_DIR}/src/*.c)
+
+  add_compile_definitions(USE_FBGPLATFORM)   
+  add_compile_definitions(WITHOUT_PNG)
+  add_compile_definitions(WITHOUT_JPEG)
+  add_compile_definitions(WITHOUT_STB_IMAGE)
+  add_library(drzenginepgefb STATIC ${SOURCES} ${FBG_SOURCES} src/DrzEngine_PGE.cpp)
+  target_include_directories(drzenginepgefb PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 endif()
+
 
 if(BUILD_DOC)
   # check if Doxygen is installed
@@ -84,13 +98,20 @@ if(BUILD_TEST_APPS)
     target_link_libraries(test_drzengine_pge PRIVATE Threads::Threads)
 
   endif()
-  if(BUILD_FBLIB)
+  if(BUILD_PGEFBLIB)
 
-    add_executable(test_drzengine_fb test_drzengine_fb.cpp TestApp.cpp)
-    target_link_libraries(test_drzengine_fb PRIVATE drzenginefb) 
+    #add test app
+    add_executable(test_drzengine_pgefb test_drzengine_pge.cpp TestApp.cpp)
+    target_link_libraries(test_drzengine_pgefb PRIVATE drzenginepgefb)
+
+    #libpng
+    find_package(PNG REQUIRED)
+    include_directories(${PNG_INCLUDE_DIR})
+    target_link_libraries(test_drzengine_pgefb PRIVATE PNG::PNG)
 
     #pthread
     find_package(Threads REQUIRED)
-    target_link_libraries(test_drzengine_fb PRIVATE Threads::Threads)
+    target_link_libraries(test_drzengine_pgefb PRIVATE Threads::Threads)
+
   endif()
 endif()

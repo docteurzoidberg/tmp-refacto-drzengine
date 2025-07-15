@@ -7,6 +7,7 @@ using namespace drz;
 TestApp::TestApp() {
   std::cout << "TestApp constructor called" << std::endl;
   gfx = DrzGraphics::Get();
+  engine = DrzEngine::Get();
 }
 
 TestApp::~TestApp() {
@@ -26,7 +27,7 @@ void TestApp::Update(float elapsedTime) {
 
   //Draw pixels using graphics
   //auto gfx = DrzGraphics::Get();
-  gfx->DrawPixel(0, 0, Color(255, 0, 0));
+  //gfx->DrawPixel(0, 0, Color(255, 0, 0));
 }
 
 bool TestApp::Command(const std::string& command) {

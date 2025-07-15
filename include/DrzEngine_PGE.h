@@ -5,6 +5,13 @@
 #include <DrzInputs.h>
 #include <DrzSerial.h>
 
+#ifdef USE_FBGPLATFORM
+  #include <FramebufferPlatform.h>
+  #undef OLC_PLATFORM_CUSTOM_EX
+  #define OLC_PLATFORM_CUSTOM_EX LinuxFBGPlatform
+  #define OLC_RENDERER_CUSTOM_EX LinuxFBGRenderer
+#endif
+
 #include <olcPixelGameEngine.h>
 
 #include <chrono>
