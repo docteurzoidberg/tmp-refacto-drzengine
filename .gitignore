@@ -1,3 +1,4 @@
 build/
 build.*/
 .cache
+.claude/settings.local.json
