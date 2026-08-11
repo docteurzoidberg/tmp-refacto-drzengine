@@ -58,7 +58,9 @@ DrzEngine_PGE::DrzEngine_PGE(int width, int height, int pixelSize) : width(width
   //TODO: include linux serial
     new DrzSerial_Linux();
   #elif __EMSCRIPTEN__
-  //TODO: include null serial
+    // no serial port in the browser: keep a no-op instance so DrzSerial::Get()
+    // never returns nullptr to the callers
+    new DrzSerial_Null();
   #endif
 
   //TODO: set audio class
