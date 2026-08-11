@@ -156,6 +156,21 @@ There are two, and they overlap. Know which one you are touching:
   `IDrzSam::Say(std::string)` in the working tree). When you touch an `IDrz*.h`, say so
   explicitly and check the consumer.
 
+## Changelog
+
+`CHANGELOG.md` is kept up to date as part of the work, not afterwards. Before committing,
+add an entry under `## [Unreleased]` for anything an outside reader would notice:
+
+- public API changes (mark breaking ones **Breaking:**), new or renamed CMake options,
+  changed build/link requirements, behaviour changes, fixed defects, performance work
+- append the short commit SHA once committed, e.g. `` (`48ae37e`) ``
+- move an item out of *Known issues* in the same commit that fixes it
+
+Skip it for: formatting-only changes, comments, internal refactors with no observable
+effect, and edits to `CLAUDE.md` or `.claude/` themselves. When in doubt, one line is
+cheaper than a missing entry — but do not invent a category, reuse the sections already
+there (Added / Changed / Fixed / Performance / Known issues).
+
 ## Gotchas
 
 - **`USE_FBGPLATFORM` leaks across targets.** `add_compile_definitions(USE_FBGPLATFORM)`
@@ -215,8 +230,10 @@ cmake -S /home/drzoid/dev/vanassistant -B <scratch>/va -DPLATFORM=LINUX_X11
 cmake --build <scratch>/va -j$(nproc)
 ```
 
-## Current working tree
+## Where things stand
 
-`gfx3d.{h,cpp}` are new and untracked; `CMakeLists.txt` adds `src/gfx3d.cpp` to `SOURCES`;
-`IDrzSam::Setup()` became `Say(std::string)`; `DrzGraphics.h` and `Widget.cpp` are
-clang-format churn. Don't mistake the formatting diff for behaviour changes when reviewing.
+`CHANGELOG.md` is the current record — read it rather than trusting a summary here. The
+short version: the `GFX3D` pipeline landed, `IDrzSam::Setup()` became `Say(std::string)`,
+and the framebuffer backend got a first pass of optimisation. `DisplayFrame()` copying the
+frame pixel by pixel is the largest remaining performance item; the *Known issues* section
+of the changelog lists the rest.
