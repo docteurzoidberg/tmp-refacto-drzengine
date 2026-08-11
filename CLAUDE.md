@@ -31,6 +31,9 @@ cmake --build build.fb -j$(nproc)       # -> build.fb/libdrzenginepgefb.a
 every option at its default (everything ON).
 
 Options: `BUILD_PGELIB`, `BUILD_PGEFBLIB`, `BUILD_DOC`, `BUILD_TEST_APPS` — all default ON.
+`DRZENGINE_OPTIMIZE` (default ON) keeps the hot paths at `-O2` even when the build type is
+Debug or unset, because a consumer's Debug build would otherwise compile the whole
+rasteriser at `-O0`; turn it off to step through the rasteriser.
 `BUILD_DOC` only warns when Doxygen is missing. Test apps additionally need libpng,
 OpenGL (GLVND), X11 and pthread.
 
@@ -193,6 +196,11 @@ turns all four options OFF, then re-enables exactly one of `BUILD_PGELIB` / `BUI
 from its `-DPLATFORM=` (`LINUX_X11`, `PI_X11`, `WASM`, `WIN` -> PGE;
 `LINUX_FB`, `PI_FB`, `BUILDROOT` -> PGEFB). It builds at C++17 while this library builds at
 C++20 — keep the public headers C++17-clean.
+
+Its `LINUX_FB` platform block does not link libpng, unlike `PI_FB` and `LINUX_X11`, so
+`-DPLATFORM=LINUX_FB` fails at link with ~22 undefined `png_*` symbols coming from PGE's
+`ImageLoader_LibPNG`. Pre-existing and on the vanassistant side; use `PI_FB` or `LINUX_X11`
+to smoke-test consumer builds until it is fixed there.
 
 Before finishing an API change here, compile the consumer:
 

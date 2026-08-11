@@ -121,15 +121,22 @@ public:
         return olc::rcode::OK;
     }
 
-    // Clear screen at start
+    // Clear both pages of the flip chain, once.
+    // The per-frame clears below are deliberately no-ops, so whatever lies
+    // outside the region DisplayFrame() writes (the draw target can be smaller
+    // than the framebuffer) has to be blacked out here — in both buffers.
     void PrepareDevice() override {
-        if (fbg_instance) fbg_clear(fbg_instance, 0);
+        if (!fbg_instance) return;
+        fbg_clear(fbg_instance, 0);
+        fbg_flip(fbg_instance);
+        fbg_clear(fbg_instance, 0);
     }
 
-    // Clear per frame before draw
-    void PrepareDrawing() override {
-        if (fbg_instance) fbg_clear(fbg_instance, 0);
-    }
+    // No-op on purpose: DisplayFrame() rewrites every pixel it owns, so
+    // clearing here is pure memory traffic (~300 KB/frame at 320x240x4) on a
+    // platform that has none to spare. Same for ClearBuffer/DrawLayerQuad below
+    // — PGE calls all three every frame.
+    void PrepareDrawing() override {}
 
     // Present frame
     void DisplayFrame() override {
@@ -150,10 +157,9 @@ public:
     // Software fallback doesn't update viewport
     void UpdateViewport(const olc::vi2d& /*pos*/, const olc::vi2d& /*size*/) override {}
 
-    // Clear buffer in software
-    void ClearBuffer(olc::Pixel /*p*/, bool /*bDepth*/) override {
-        if (fbg_instance) fbg_clear(fbg_instance, 0);
-    }
+    // No-op: see PrepareDrawing(). This clears the fbg back buffer, not the PGE
+    // draw target, so the app-facing Clear(colour) is unaffected.
+    void ClearBuffer(olc::Pixel /*p*/, bool /*bDepth*/) override {}
 
     // No hardware textures
     uint32_t CreateTexture(uint32_t, uint32_t, bool, bool) override { return 0; }
@@ -162,16 +168,12 @@ public:
     uint32_t DeleteTexture(uint32_t) override { return 0; }
     void     ApplyTexture(uint32_t) override {}
 
-    // Draw a colored rectangle (layer quad)
-    void DrawLayerQuad(const olc::vf2d& offset,
-                       const olc::vf2d& scale,
-                       const olc::Pixel tint) override {
-        if (!fbg_instance) return;
-        int w = int(scale.x * platform->GetScreenWidth());
-        int h = int(scale.y * platform->GetScreenHeight());
-        fbg_fill(fbg_instance, tint.b, tint.g, tint.r);
-        fbg_frect(fbg_instance, int(offset.x), int(offset.y), w, h);
-    }
+    // No-op: a hardware renderer blits the layer texture here, but this one has
+    // no textures — DisplayFrame() reads the draw target directly. Filling the
+    // screen with the layer tint only got overwritten a moment later.
+    void DrawLayerQuad(const olc::vf2d& /*offset*/,
+                       const olc::vf2d& /*scale*/,
+                       const olc::Pixel /*tint*/) override {}
 
     // Simple decal draw: plot each decal point with texture lookup
     void DrawDecal(const olc::DecalInstance& decal) override {

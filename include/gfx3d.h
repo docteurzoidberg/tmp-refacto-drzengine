@@ -285,5 +285,9 @@ static void RasterTriangle(int x1, int y1, float u1, float v1, float w1,
 private:
 static float *m_DepthBuffer;
 static IDrzGraphics *_gfx;
+// Screen size cached by ConfigureDisplay: the rasteriser indexes the depth
+// buffer per pixel, and GetScreenWidth() is a virtual call.
+static int _screenW;
+static int _screenH;
 };
 } // namespace drz

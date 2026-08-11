@@ -582,15 +582,17 @@ void GFX3D::TexturedTriangle(int x1, int y1, float u1, float v1, float w1,
         tex_u = (1.0f - t) * tex_su + t * tex_eu;
         tex_v = (1.0f - t) * tex_sv + t * tex_ev;
         tex_w = (1.0f - t) * tex_sw + t * tex_ew;
-        if (tex_w > m_DepthBuffer[i * _gfx->GetScreenWidth() + j]) {
+        const int depthIndex = i * _screenW + j;
+        if (tex_w > m_DepthBuffer[depthIndex]) {
           /*if (bMipMap)
                   pge->Draw(j, i, ((drz::GFX3D::MipMap*)spr)->Sample(tex_u /
           tex_w, tex_v / tex_w, tex_w)); else*/
+          const float inv_w = 1.0f / tex_w;
           if (_gfx->DrawPixel(j, i,
                               spr != nullptr
-                                  ? spr->Sample(tex_u / tex_w, tex_v / tex_w)
+                                  ? spr->Sample(tex_u * inv_w, tex_v * inv_w)
                                   : drz::GREY))
-            m_DepthBuffer[i * _gfx->GetScreenWidth() + j] = tex_w;
+            m_DepthBuffer[depthIndex] = tex_w;
         }
         t += tstep;
       }
@@ -648,15 +650,17 @@ void GFX3D::TexturedTriangle(int x1, int y1, float u1, float v1, float w1,
         tex_v = (1.0f - t) * tex_sv + t * tex_ev;
         tex_w = (1.0f - t) * tex_sw + t * tex_ew;
 
-        if (tex_w > m_DepthBuffer[i * _gfx->GetScreenWidth() + j]) {
+        const int depthIndex = i * _screenW + j;
+        if (tex_w > m_DepthBuffer[depthIndex]) {
           /*if(bMipMap)
                   pge->Draw(j, i, ((drz::GFX3D::MipMap*)spr)->Sample(tex_u /
           tex_w, tex_v / tex_w, tex_w)); else*/
+          const float inv_w = 1.0f / tex_w;
           if (_gfx->DrawPixel(j, i,
                               spr != nullptr
-                                  ? spr->Sample(tex_u / tex_w, tex_v / tex_w)
+                                  ? spr->Sample(tex_u * inv_w, tex_v * inv_w)
                                   : drz::GREY))
-            m_DepthBuffer[i * _gfx->GetScreenWidth() + j] = tex_w;
+            m_DepthBuffer[depthIndex] = tex_w;
         }
         t += tstep;
       }
@@ -668,16 +672,18 @@ void GFX3D::DrawTriangleTex(drz::GFX3D::triangle &tri, drz::Sprite *spr) {}
 
 IDrzGraphics *GFX3D::_gfx = nullptr;
 float *GFX3D::m_DepthBuffer = nullptr;
+int GFX3D::_screenW = 0;
+int GFX3D::_screenH = 0;
 
 void GFX3D::ConfigureDisplay(IDrzGraphics *gfx) {
   _gfx = gfx;
-  m_DepthBuffer =
-      new float[_gfx->GetScreenWidth() * _gfx->GetScreenHeight()]{0};
+  _screenW = _gfx->GetScreenWidth();
+  _screenH = _gfx->GetScreenHeight();
+  m_DepthBuffer = new float[_screenW * _screenH]{0};
 }
 
 void GFX3D::ClearDepth() {
-  memset(m_DepthBuffer, 0,
-         _gfx->GetScreenWidth() * _gfx->GetScreenHeight() * sizeof(float));
+  memset(m_DepthBuffer, 0, _screenW * _screenH * sizeof(float));
 }
 
 GFX3D::PipeLine::PipeLine() {
@@ -1273,7 +1279,8 @@ void GFX3D::RasterTriangle(int x1, int y1, float u1, float v1, float w1,
 
         if (nFlags & GFX3D::RENDER_TEXTURED) {
           if (spr != nullptr) {
-            drz::Color sample = spr->Sample(tex_u / tex_w, tex_v / tex_w);
+            const float inv_w = 1.0f / tex_w;
+            drz::Color sample = spr->Sample(tex_u * inv_w, tex_v * inv_w);
             pixel_r *= sample.r / 255.0f;
             pixel_g *= sample.g / 255.0f;
             pixel_b *= sample.b / 255.0f;
@@ -1282,13 +1289,14 @@ void GFX3D::RasterTriangle(int x1, int y1, float u1, float v1, float w1,
         }
 
         if (nFlags & GFX3D::RENDER_DEPTH) {
-          if (tex_w > m_DepthBuffer[i * _gfx->GetScreenWidth() + j])
+          const int depthIndex = i * _screenW + j;
+          if (tex_w > m_DepthBuffer[depthIndex])
             if (_gfx->DrawPixel(j, i,
                                 drz::Color(uint8_t(pixel_r * 1.0f),
                                            uint8_t(pixel_g * 1.0f),
                                            uint8_t(pixel_b * 1.0f),
                                            uint8_t(pixel_a * 1.0f))))
-              m_DepthBuffer[i * _gfx->GetScreenWidth() + j] = tex_w;
+              m_DepthBuffer[depthIndex] = tex_w;
         } else {
           _gfx->DrawPixel(
               j, i,
@@ -1399,7 +1407,8 @@ void GFX3D::RasterTriangle(int x1, int y1, float u1, float v1, float w1,
 
         if (nFlags & GFX3D::RENDER_TEXTURED) {
           if (spr != nullptr) {
-            drz::Color sample = spr->Sample(tex_u / tex_w, tex_v / tex_w);
+            const float inv_w = 1.0f / tex_w;
+            drz::Color sample = spr->Sample(tex_u * inv_w, tex_v * inv_w);
             pixel_r *= sample.r / 255.0f;
             pixel_g *= sample.g / 255.0f;
             pixel_b *= sample.b / 255.0f;
@@ -1408,13 +1417,14 @@ void GFX3D::RasterTriangle(int x1, int y1, float u1, float v1, float w1,
         }
 
         if (nFlags & GFX3D::RENDER_DEPTH) {
-          if (tex_w > m_DepthBuffer[i * _gfx->GetScreenWidth() + j])
+          const int depthIndex = i * _screenW + j;
+          if (tex_w > m_DepthBuffer[depthIndex])
             if (_gfx->DrawPixel(j, i,
                                 drz::Color(uint8_t(pixel_r * 1.0f),
                                            uint8_t(pixel_g * 1.0f),
                                            uint8_t(pixel_b * 1.0f),
                                            uint8_t(pixel_a * 1.0f))))
-              m_DepthBuffer[i * _gfx->GetScreenWidth() + j] = tex_w;
+              m_DepthBuffer[depthIndex] = tex_w;
         } else {
           _gfx->DrawPixel(
               j, i,

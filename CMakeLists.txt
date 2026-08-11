@@ -18,6 +18,29 @@ option(BUILD_TEST_APPS "Build test apps" ON)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 include_directories(${FBGRAPHICS_LIB_DIR}/include)
 
+# Optimisation flags, applied per target on purpose.
+#
+# A consumer pulling this in with add_subdirectory() sets its compile options on
+# its own executable only, and picks the build type for everyone. vanassistant
+# defaults to Debug, so this whole library — rasteriser, text rendering, widgets,
+# i.e. every hot path — was being built at -O0 on the Pi.
+#
+# Debugging the *app* should not mean shipping an unoptimised *engine*, so the
+# hot paths keep -O2 in Debug too. Turn DRZENGINE_OPTIMIZE off to step through
+# the rasteriser. Release/RelWithDebInfo already optimise and are left alone.
+# -fno-math-errno lets sqrtf() compile to a single VFP instruction instead of a
+# libm call; Vec_Length/Vec_Normalise sit in the per-triangle path.
+option(DRZENGINE_OPTIMIZE "Keep the engine hot paths at -O2 even in Debug builds" ON)
+
+set(DRZENGINE_OPT_FLAGS "")
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+  list(APPEND DRZENGINE_OPT_FLAGS -fno-math-errno)
+  if(DRZENGINE_OPTIMIZE AND (NOT CMAKE_BUILD_TYPE OR CMAKE_BUILD_TYPE STREQUAL "Debug"))
+    list(APPEND DRZENGINE_OPT_FLAGS -O2)
+    message(STATUS "drzengine: forcing -O2 (build type '${CMAKE_BUILD_TYPE}' would leave the hot paths at -O0)")
+  endif()
+endif()
+
 set(SOURCES
   src/DrzEngine.cpp
   src/DrzGraphics.cpp
@@ -31,6 +54,7 @@ if(BUILD_PGELIB)
   add_library(drzenginepge STATIC ${SOURCES} src/DrzEngine_PGE.cpp)
   # Specify the include directory for consumers
   target_include_directories(drzenginepge PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+  target_compile_options(drzenginepge PRIVATE ${DRZENGINE_OPT_FLAGS})
   #TODO: add support for others platform using olc::pge like emscripten and windows here
 endif()
 
@@ -44,6 +68,7 @@ if(BUILD_PGEFBLIB)
   add_compile_definitions(WITHOUT_STB_IMAGE)
   add_library(drzenginepgefb STATIC ${SOURCES} ${FBG_SOURCES} src/DrzEngine_PGE.cpp)
   target_include_directories(drzenginepgefb PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+  target_compile_options(drzenginepgefb PRIVATE ${DRZENGINE_OPT_FLAGS})
 endif()
 
 
