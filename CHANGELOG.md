@@ -47,6 +47,11 @@ everything lands under *Unreleased* until a first release is cut.
 - **vanassistant `-DPLATFORM=LINUX_FB` failed to link** with ~22 undefined `png_*` symbols.
   Fixed by the libpng dependency declaration above, with no change to vanassistant.
   (`244cb86`)
+- **The emscripten build did not compile.** `DrzEngine_PGE.cpp` included `<DrzSerial_Null.h>`
+  under `__EMSCRIPTEN__` but that header had never been written, and the matching branch of
+  the constructor created no serial backend at all, leaving `DrzSerial::Get()` null for every
+  caller. Added a no-op `IDrzSerial` implementation for platforms with no serial port (reads
+  report no byte available, writes are discarded) and instantiated it there. (`6e8949b`)
 
 ### Performance
 
