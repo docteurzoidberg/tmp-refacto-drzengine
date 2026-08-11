@@ -34,8 +34,14 @@ Options: `BUILD_PGELIB`, `BUILD_PGEFBLIB`, `BUILD_DOC`, `BUILD_TEST_APPS` — al
 `DRZENGINE_OPTIMIZE` (default ON) keeps the hot paths at `-O2` even when the build type is
 Debug or unset, because a consumer's Debug build would otherwise compile the whole
 rasteriser at `-O0`; turn it off to step through the rasteriser.
-`BUILD_DOC` only warns when Doxygen is missing. Test apps additionally need libpng,
+`BUILD_DOC` only warns when Doxygen is missing. Test apps additionally need
 OpenGL (GLVND), X11 and pthread.
+
+`BUILD_PGEFBLIB` requires libpng at configure time: PGE auto-selects its libpng image
+loader on Linux and compiles it into `src/DrzEngine_PGE.cpp`, so `drzenginepgefb` links
+`PNG::PNG`. A cross-compile sysroot without libpng now fails at configure instead of at the
+consumer's link step. If a build genuinely needs no image loading, defining
+`OLC_IMAGE_HEADLESS` drops the loader and the dependency with it.
 
 There is no test suite. `test_drzengine_pge` is a manual smoke app (opens a 320x240 window
 at pixel size 2, `Q` quits, `F1` opens the PGE console). It calls `serial->Setup()` on
@@ -197,10 +203,10 @@ from its `-DPLATFORM=` (`LINUX_X11`, `PI_X11`, `WASM`, `WIN` -> PGE;
 `LINUX_FB`, `PI_FB`, `BUILDROOT` -> PGEFB). It builds at C++17 while this library builds at
 C++20 — keep the public headers C++17-clean.
 
-Its `LINUX_FB` platform block does not link libpng, unlike `PI_FB` and `LINUX_X11`, so
-`-DPLATFORM=LINUX_FB` fails at link with ~22 undefined `png_*` symbols coming from PGE's
-`ImageLoader_LibPNG`. Pre-existing and on the vanassistant side; use `PI_FB` or `LINUX_X11`
-to smoke-test consumer builds until it is fixed there.
+Its `LINUX_FB` block does not link libpng itself, unlike `PI_FB` and `LINUX_X11`. That used
+to fail at link with ~22 undefined `png_*` symbols; `drzenginepgefb` now declares the
+dependency itself, so consumers get it transitively and the duplicate `find_package(PNG)`
+calls in vanassistant's platform blocks are redundant (harmless, they can go whenever).
 
 Before finishing an API change here, compile the consumer:
 

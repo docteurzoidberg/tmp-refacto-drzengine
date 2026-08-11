@@ -69,6 +69,15 @@ if(BUILD_PGEFBLIB)
   add_library(drzenginepgefb STATIC ${SOURCES} ${FBG_SOURCES} src/DrzEngine_PGE.cpp)
   target_include_directories(drzenginepgefb PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
   target_compile_options(drzenginepgefb PRIVATE ${DRZENGINE_OPT_FLAGS})
+
+  # PGE auto-selects its libpng image loader on Linux, and it is *this* target
+  # that compiles it (src/DrzEngine_PGE.cpp carries OLC_PGE_APPLICATION). So the
+  # dependency is declared here rather than left for every consumer to rediscover
+  # at link time. WITHOUT_PNG above only concerns fbgraphics' own loader.
+  # PRIVATE is enough: consumers don't include png.h, and CMake still propagates
+  # the link requirement of a static library.
+  find_package(PNG REQUIRED)
+  target_link_libraries(drzenginepgefb PRIVATE PNG::PNG)
 endif()
 
 
