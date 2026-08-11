@@ -24,6 +24,7 @@ set(SOURCES
   src/DrzInputs.cpp
   src/Widget.cpp
   src/DisplayPageManager.cpp
+  src/gfx3d.cpp
 )
 
 if(BUILD_PGELIB) 

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 namespace drz {
 
 /**
@@ -9,7 +11,7 @@ namespace drz {
 class IDrzSam
 {
   public:
-    virtual void Setup() = 0;
+    virtual bool Say(std::string text) = 0;
 };
 
 } // namespace
