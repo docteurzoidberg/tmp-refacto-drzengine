@@ -18,6 +18,12 @@ everything lands under *Unreleased* until a first release is cut.
   (`c579c16`)
 - `CLAUDE.md`, plus the `/build` and `/check-consumer` project commands under
   `.claude/commands/`. (`4b4c1d7`)
+- **A real `README.md`.** It was a one-line stub (`# tmp-refacto-drzengine`) untouched since
+  the first commit. Now covers requirements, the per-backend build commands and the
+  one-backend-per-build-directory rule, the CMake options, `add_subdirectory()` integration
+  and the link requirements each backend does and does not propagate, a compiled-and-linked
+  quick-start app, the facade/interface architecture, the frame lifecycle, and the vendored
+  third-party licences.
 - `DRZENGINE_OPTIMIZE` CMake option (default ON) — keeps the hot paths at `-O2` even when
   the build type is Debug or unset. Turn it off to step through the rasteriser. (`48ae37e`)
 
