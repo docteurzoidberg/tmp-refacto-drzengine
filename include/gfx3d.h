@@ -245,13 +245,18 @@ private:
   float fViewW;
   float fViewH;
 
+  // Value-initialised: the constructor never touched this array, so every
+  // slot the caller did not set held an indeterminate `type`. Render()
+  // switches on it, so a garbage slot could silently register itself as an
+  // ambient or directional light with a garbage colour and direction and
+  // corrupt the shading of arbitrary faces. 0 == LIGHT_DISABLED.
   struct sLight {
     uint32_t type;
     drz::GFX3D::vec3d pos;
     drz::GFX3D::vec3d dir;
     drz::Color col;
     float param;
-  } lights[4];
+  } lights[4] = {};
 };
 
 public:

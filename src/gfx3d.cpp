@@ -3,6 +3,19 @@
 #include <gfx3d.h>
 #include <list>
 
+// The rasteriser can step one pixel past the viewport on the right/bottom
+// edge once the clipped coordinates are truncated to int. DrawPixel rejects
+// those, which guards the depth *write*, but the depth *read* was unguarded:
+// at the right edge it sampled the next row's depth, and on the last row it
+// read past the end of the buffer.
+static inline bool DepthIndex(int x, int y, int w, int h, int &out) {
+  if (x < 0 || x >= w || y < 0 || y >= h)
+    return false;
+  out = y * w + x;
+  return true;
+}
+
+
 namespace drz {
 drz::GFX3D::Math::Math() {}
 
@@ -582,8 +595,9 @@ void GFX3D::TexturedTriangle(int x1, int y1, float u1, float v1, float w1,
         tex_u = (1.0f - t) * tex_su + t * tex_eu;
         tex_v = (1.0f - t) * tex_sv + t * tex_ev;
         tex_w = (1.0f - t) * tex_sw + t * tex_ew;
-        const int depthIndex = i * _screenW + j;
-        if (tex_w > m_DepthBuffer[depthIndex]) {
+        int depthIndex;
+        if (DepthIndex(j, i, _screenW, _screenH, depthIndex) &&
+            tex_w > m_DepthBuffer[depthIndex]) {
           /*if (bMipMap)
                   pge->Draw(j, i, ((drz::GFX3D::MipMap*)spr)->Sample(tex_u /
           tex_w, tex_v / tex_w, tex_w)); else*/
@@ -650,8 +664,9 @@ void GFX3D::TexturedTriangle(int x1, int y1, float u1, float v1, float w1,
         tex_v = (1.0f - t) * tex_sv + t * tex_ev;
         tex_w = (1.0f - t) * tex_sw + t * tex_ew;
 
-        const int depthIndex = i * _screenW + j;
-        if (tex_w > m_DepthBuffer[depthIndex]) {
+        int depthIndex;
+        if (DepthIndex(j, i, _screenW, _screenH, depthIndex) &&
+            tex_w > m_DepthBuffer[depthIndex]) {
           /*if(bMipMap)
                   pge->Draw(j, i, ((drz::GFX3D::MipMap*)spr)->Sample(tex_u /
           tex_w, tex_v / tex_w, tex_w)); else*/
@@ -677,9 +692,17 @@ int GFX3D::_screenH = 0;
 
 void GFX3D::ConfigureDisplay(IDrzGraphics *gfx) {
   _gfx = gfx;
-  _screenW = _gfx->GetScreenWidth();
-  _screenH = _gfx->GetScreenHeight();
-  m_DepthBuffer = new float[_screenW * _screenH]{0};
+  const int w = _gfx->GetScreenWidth();
+  const int h = _gfx->GetScreenHeight();
+  // Every call used to allocate a new buffer and drop the previous one on the
+  // floor, so each extra caller leaked a whole screen of floats. Reuse the
+  // buffer when the size has not changed, and free it when it has.
+  if (m_DepthBuffer != nullptr && w == _screenW && h == _screenH)
+    return;
+  delete[] m_DepthBuffer;
+  _screenW = w;
+  _screenH = h;
+  m_DepthBuffer = new float[w * h]{0};
 }
 
 void GFX3D::ClearDepth() {
@@ -898,10 +921,6 @@ uint32_t GFX3D::PipeLine::Render(std::vector<drz::GFX3D::triangle> &triangles,
           nLightSources++;
           GFX3D::vec3d light_dir = GFX3D::Math::Vec_Normalise(lights[i].dir);
           float light = GFX3D::Math::Vec_DotProduct(light_dir, normal);
-          if (light > 0) {
-            int j = 0;
-          }
-
           light = std::max(light, 0.0f);
           nLightR += light * (lights[i].col.r / 255.0f);
           nLightG += light * (lights[i].col.g / 255.0f);
@@ -919,6 +938,13 @@ uint32_t GFX3D::PipeLine::Render(std::vector<drz::GFX3D::triangle> &triangles,
       nLightR = std::max(nLightR, ambient_clamp.r / 255.0f);
       nLightG = std::max(nLightG, ambient_clamp.g / 255.0f);
       nLightB = std::max(nLightB, ambient_clamp.b / 255.0f);
+
+      // Each directional light adds up to 1.0, so several of them together
+      // pushed the product past 255 and wrapped the uint8_t back down to a
+      // dark value: over-lit surfaces came out darker than dim ones.
+      nLightR = std::min(nLightR, 1.0f);
+      nLightG = std::min(nLightG, 1.0f);
+      nLightB = std::min(nLightB, 1.0f);
 
       triTransformed.col[0] =
           drz::Color(uint8_t(nLightR * triTransformed.col[0].r),
@@ -1289,8 +1315,9 @@ void GFX3D::RasterTriangle(int x1, int y1, float u1, float v1, float w1,
         }
 
         if (nFlags & GFX3D::RENDER_DEPTH) {
-          const int depthIndex = i * _screenW + j;
-          if (tex_w > m_DepthBuffer[depthIndex])
+          int depthIndex;
+          if (DepthIndex(j, i, _screenW, _screenH, depthIndex) &&
+              tex_w > m_DepthBuffer[depthIndex])
             if (_gfx->DrawPixel(j, i,
                                 drz::Color(uint8_t(pixel_r * 1.0f),
                                            uint8_t(pixel_g * 1.0f),
@@ -1417,8 +1444,9 @@ void GFX3D::RasterTriangle(int x1, int y1, float u1, float v1, float w1,
         }
 
         if (nFlags & GFX3D::RENDER_DEPTH) {
-          const int depthIndex = i * _screenW + j;
-          if (tex_w > m_DepthBuffer[depthIndex])
+          int depthIndex;
+          if (DepthIndex(j, i, _screenW, _screenH, depthIndex) &&
+              tex_w > m_DepthBuffer[depthIndex])
             if (_gfx->DrawPixel(j, i,
                                 drz::Color(uint8_t(pixel_r * 1.0f),
                                            uint8_t(pixel_g * 1.0f),

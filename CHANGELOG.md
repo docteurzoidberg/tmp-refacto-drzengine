@@ -45,6 +45,35 @@ everything lands under *Unreleased* until a first release is cut.
 
 ### Fixed
 
+- **`GFX3D::ConfigureDisplay()` leaked a full depth buffer per call**
+  (`src/gfx3d.cpp`). It allocated `new float[w * h]` every time and dropped the
+  previous buffer on the floor, so each additional caller leaked a screen's
+  worth of floats. It now reuses the buffer when the screen size is unchanged
+  and frees the old one when it is not, which makes it safe for several scene
+  widgets to configure the display independently.
+
+- **`GFX3D::PipeLine` rendered with uninitialised light slots** (`include/gfx3d.h`). The
+  `lights[4]` member array had no initialiser and `PipeLine::PipeLine()` never touched it,
+  so every slot the caller did not explicitly set carried an indeterminate `type`.
+  `Render()` switches on that field, so a garbage slot could register itself as an ambient
+  or directional light with a garbage colour and direction, and perturb the shading of
+  arbitrary faces differently on every run. The array is now value-initialised, which puts
+  all four slots at `LIGHT_DISABLED`.
+
+- **`GFX3D` lighting wrapped `uint8_t` on over-lit surfaces** (`src/gfx3d.cpp`). Each
+  directional light adds up to `1.0` to `nLightR/G/B`, and the accumulator was only floored
+  against the ambient term, never capped. With two or more directional lights the product
+  `nLight * col` overflowed 255 and wrapped back down (`1.5 * 200` → `44`), so the brightest
+  surfaces rendered *darker* than dimly lit ones. The accumulator is now clamped to `1.0`.
+- **`GFX3D` depth buffer was read out of bounds** (`src/gfx3d.cpp`, 4 rasteriser sites). The
+  depth *write* was guarded by `DrawPixel()`'s return value, but the *read*
+  `m_DepthBuffer[i * _screenW + j]` was not. After the clipped coordinates are truncated to
+  int the rasteriser can step one pixel past the viewport, so at the right edge it compared
+  against the next row's depth and on the last row it read past the end of the allocation.
+  Both are now routed through a bounds-checked `DepthIndex()` helper.
+- Dropped a dead `if (light > 0) { int j = 0; }` left over from debugging the directional
+  light path.
+
 - **Library was compiled at `-O0` in consumer builds.** A consumer using
   `add_subdirectory()` sets compile options on its own executable only and picks the build
   type for everyone; vanassistant defaults to Debug, so the rasteriser, text rendering and
