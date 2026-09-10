@@ -605,6 +605,13 @@ public:
 
   virtual int GetScreenWidth() = 0;
   virtual int GetScreenHeight() = 0;
+
+  // Optional direct access to a flat 32-bit pixel buffer, GetScreenWidth()
+  // pixels per row. The 3D rasteriser writes through it to avoid a virtual
+  // DrawPixel call per pixel, which is the dominant cost of filling a span.
+  // Not pure: a backend that has no such buffer, or that needs DrawPixel's
+  // paint-mode handling, returns nullptr and keeps the per-pixel path.
+  virtual Color *GetPixelBuffer() { return nullptr; }
 };
 
 #pragma endregion IDrzGraphics

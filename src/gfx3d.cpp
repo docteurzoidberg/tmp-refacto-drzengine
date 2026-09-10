@@ -307,7 +307,10 @@ drz::GFX3D::vec3d drz::GFX3D::Math::Vec_CrossProduct(drz::GFX3D::vec3d &v1,
 drz::GFX3D::vec3d drz::GFX3D::Math::Vec_IntersectPlane(
     drz::GFX3D::vec3d &plane_p, drz::GFX3D::vec3d &plane_n,
     drz::GFX3D::vec3d &lineStart, drz::GFX3D::vec3d &lineEnd, float &t) {
-  plane_n = Vec_Normalise(plane_n);
+  // plane_n must already be unit length -- see Triangle_ClipAgainstPlane.
+  // This used to normalise it on entry, which cost a sqrt and three divides
+  // on every call, and the only caller clips against the six axis-aligned
+  // planes whose normals are unit by construction.
   float plane_d = -Vec_DotProduct(plane_n, plane_p);
   float ad = Vec_DotProduct(lineStart, plane_n);
   float bd = Vec_DotProduct(lineEnd, plane_n);
@@ -321,9 +324,9 @@ int drz::GFX3D::Math::Triangle_ClipAgainstPlane(vec3d plane_p, vec3d plane_n,
                                                 triangle &in_tri,
                                                 triangle &out_tri1,
                                                 triangle &out_tri2) {
-  // Make sure plane normal is indeed normal
-  plane_n = Math::Vec_Normalise(plane_n);
-
+  // plane_n must be unit length. It used to be normalised here on every
+  // call; the pipeline clips each triangle against five planes, all of them
+  // axis-aligned unit vectors, so that was five needless sqrts per triangle.
   out_tri1.t[0] = in_tri.t[0];
   out_tri2.t[0] = in_tri.t[0];
   out_tri1.t[1] = in_tri.t[1];
@@ -332,11 +335,12 @@ int drz::GFX3D::Math::Triangle_ClipAgainstPlane(vec3d plane_p, vec3d plane_n,
   out_tri2.t[2] = in_tri.t[2];
 
   // Return signed shortest distance from point to plane, plane normal must be
-  // normalised
+  // normalised. `plane_d` is constant across the three vertices, and the
+  // lambda used to open by normalising `p` into a variable it never read --
+  // a sqrt and three divides thrown away per vertex per plane.
+  const float plane_d = Math::Vec_DotProduct(plane_n, plane_p);
   auto dist = [&](vec3d &p) {
-    vec3d n = Math::Vec_Normalise(p);
-    return (plane_n.x * p.x + plane_n.y * p.y + plane_n.z * p.z -
-            Math::Vec_DotProduct(plane_n, plane_p));
+    return (plane_n.x * p.x + plane_n.y * p.y + plane_n.z * p.z - plane_d);
   };
 
   // Create two temporary storage arrays to classify points either side of plane
@@ -753,7 +757,12 @@ void GFX3D::PipeLine::SetLightSource(uint32_t nSlot, uint32_t nType,
   if (nSlot < 4) {
     lights[nSlot].type = nType;
     lights[nSlot].pos = pos;
-    lights[nSlot].dir = dir;
+    // Normalised here rather than in Render(): the direction does not change
+    // between triangles, but Render() was re-normalising it for every one of
+    // them. Guarded because a point light leaves `dir` at zero, and
+    // normalising that yields NaN.
+    lights[nSlot].dir =
+        (nType == LIGHT_DIRECTIONAL) ? GFX3D::Math::Vec_Normalise(dir) : dir;
     lights[nSlot].col = col;
     lights[nSlot].param = fParam;
   }
@@ -853,9 +862,6 @@ uint32_t GFX3D::PipeLine::Render(std::vector<drz::GFX3D::triangle> &triangles,
   mat4x4 matWorldView = Math::Mat_MultiplyMatrix(matWorld, matView);
   // matWorldViewProj = Math::Mat_MultiplyMatrix(matWorldView, matProj);
 
-  // Store triangles for rastering later
-  std::vector<GFX3D::triangle> vecTrianglesToRaster;
-
   int nTriangleDrawnCount = 0;
 
   // Process Triangles
@@ -893,18 +899,22 @@ uint32_t GFX3D::PipeLine::Render(std::vector<drz::GFX3D::triangle> &triangles,
     line1 = GFX3D::Math::Vec_Sub(triTransformed.p[1], triTransformed.p[0]);
     line2 = GFX3D::Math::Vec_Sub(triTransformed.p[2], triTransformed.p[0]);
     normal = GFX3D::Math::Vec_CrossProduct(line1, line2);
-    normal = GFX3D::Math::Vec_Normalise(normal);
 
-    // Cull triangles that face away from viewer
-    if (flags & RENDER_CULL_CW &&
-        GFX3D::Math::Vec_DotProduct(normal, triTransformed.p[0]) > 0.0f)
+    // Cull triangles that face away from viewer. Tested on the raw cross
+    // product: normalising divides by a positive length, so it cannot change
+    // the sign of this dot product. The normal is only normalised below, for
+    // the triangles that survive and actually need shading -- on a closed
+    // mesh that is roughly half of them.
+    const float fFacing =
+        GFX3D::Math::Vec_DotProduct(normal, triTransformed.p[0]);
+    if (flags & RENDER_CULL_CW && fFacing > 0.0f)
       continue;
-    if (flags & RENDER_CULL_CCW &&
-        GFX3D::Math::Vec_DotProduct(normal, triTransformed.p[0]) < 0.0f)
+    if (flags & RENDER_CULL_CCW && fFacing < 0.0f)
       continue;
 
     // If Lighting, calculate shading
     if (flags & RENDER_LIGHTS) {
+      normal = GFX3D::Math::Vec_Normalise(normal);
       drz::Color ambient_clamp = {0, 0, 0};
       drz::Color light_combined = {0, 0, 0};
       uint32_t nLightSources = 0;
@@ -919,8 +929,8 @@ uint32_t GFX3D::PipeLine::Render(std::vector<drz::GFX3D::triangle> &triangles,
           break;
         case LIGHT_DIRECTIONAL: {
           nLightSources++;
-          GFX3D::vec3d light_dir = GFX3D::Math::Vec_Normalise(lights[i].dir);
-          float light = GFX3D::Math::Vec_DotProduct(light_dir, normal);
+          // Already unit length -- SetLightSource normalises on the way in.
+          float light = GFX3D::Math::Vec_DotProduct(lights[i].dir, normal);
           light = std::max(light, 0.0f);
           nLightR += light * (lights[i].col.r / 255.0f);
           nLightG += light * (lights[i].col.g / 255.0f);
@@ -1016,63 +1026,62 @@ uint32_t GFX3D::PipeLine::Render(std::vector<drz::GFX3D::triangle> &triangles,
       triProjected.t[1].z = 1.0f / triProjected.p[1].w;
       triProjected.t[2].z = 1.0f / triProjected.p[2].w;
 
-      // Clip against viewport in screen space
-      // Clip triangles against all four screen edges, this could yield
-      // a bunch of triangles, so create a queue that we traverse to
-      //  ensure we only test new triangles generated against planes
-      GFX3D::triangle sclipped[2];
-      std::list<GFX3D::triangle> listTriangles;
+      // Clip against the four viewport edges in screen space. Each plane can
+      // split a triangle in two, so four planes bound the result at 2^4.
+      //
+      // This used to run through a std::list built per triangle, which meant
+      // a heap allocation and free for every triangle that survived culling
+      // -- several hundred malloc/free pairs per frame, to hold at most a
+      // handful of triangles. Two fixed stack buffers, consumed and refilled
+      // per plane, hold the same triangles in the same order.
+      constexpr int kMaxClipped = 16;
+      GFX3D::triangle clipBufA[kMaxClipped];
+      GFX3D::triangle clipBufB[kMaxClipped];
+      GFX3D::triangle *pIn = clipBufA;
+      GFX3D::triangle *pOut = clipBufB;
+      int nIn = 0;
 
-      // Add initial triangle
-      listTriangles.push_back(triProjected);
-      int nNewTriangles = 1;
+      // Trivial accept: a triangle wholly inside the viewport comes out of
+      // all four plane clips unchanged, so skip them. That is the normal
+      // case for a model that fits on screen, and it was paying for twelve
+      // plane-distance tests and a list round trip to learn nothing.
+      const bool bInside =
+          triProjected.p[0].x >= -1.0f && triProjected.p[0].x <= 1.0f &&
+          triProjected.p[0].y >= -1.0f && triProjected.p[0].y <= 1.0f &&
+          triProjected.p[1].x >= -1.0f && triProjected.p[1].x <= 1.0f &&
+          triProjected.p[1].y >= -1.0f && triProjected.p[1].y <= 1.0f &&
+          triProjected.p[2].x >= -1.0f && triProjected.p[2].x <= 1.0f &&
+          triProjected.p[2].y >= -1.0f && triProjected.p[2].y <= 1.0f;
 
-      for (int p = 0; p < 4; p++) {
-        int nTrisToAdd = 0;
-        while (nNewTriangles > 0) {
-          // Take triangle from front of queue
-          triangle test = listTriangles.front();
-          listTriangles.pop_front();
-          nNewTriangles--;
+      pIn[nIn++] = triProjected;
 
-          // Clip it against a plane. We only need to test each
-          // subsequent plane, against subsequent new triangles
-          // as all triangles after a plane clip are guaranteed
-          // to lie on the inside of the plane. I like how this
-          // comment is almost completely and utterly justified
-          switch (p) {
-          case 0:
-            nTrisToAdd = GFX3D::Math::Triangle_ClipAgainstPlane(
-                {0.0f, -1.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, test, sclipped[0],
-                sclipped[1]);
-            break;
-          case 1:
-            nTrisToAdd = GFX3D::Math::Triangle_ClipAgainstPlane(
-                {0.0f, +1.0f, 0.0f}, {0.0f, -1.0f, 0.0f}, test, sclipped[0],
-                sclipped[1]);
-            break;
-          case 2:
-            nTrisToAdd = GFX3D::Math::Triangle_ClipAgainstPlane(
-                {-1.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, test, sclipped[0],
-                sclipped[1]);
-            break;
-          case 3:
-            nTrisToAdd = GFX3D::Math::Triangle_ClipAgainstPlane(
-                {+1.0f, 0.0f, 0.0f}, {-1.0f, 0.0f, 0.0f}, test, sclipped[0],
-                sclipped[1]);
-            break;
+      if (!bInside) {
+        GFX3D::triangle sclipped[2];
+        static const GFX3D::vec3d planeP[4] = {{0.0f, -1.0f, 0.0f},
+                                               {0.0f, +1.0f, 0.0f},
+                                               {-1.0f, 0.0f, 0.0f},
+                                               {+1.0f, 0.0f, 0.0f}};
+        static const GFX3D::vec3d planeN[4] = {{0.0f, 1.0f, 0.0f},
+                                               {0.0f, -1.0f, 0.0f},
+                                               {1.0f, 0.0f, 0.0f},
+                                               {-1.0f, 0.0f, 0.0f}};
+        for (int p = 0; p < 4; p++) {
+          int nOut = 0;
+          for (int q = 0; q < nIn; q++) {
+            const int nTrisToAdd = GFX3D::Math::Triangle_ClipAgainstPlane(
+                planeP[p], planeN[p], pIn[q], sclipped[0], sclipped[1]);
+            for (int w = 0; w < nTrisToAdd && nOut < kMaxClipped; w++)
+              pOut[nOut++] = sclipped[w];
           }
-
-          // Clipping may yield a variable number of triangles, so
-          // add these new ones to the back of the queue for subsequent
-          // clipping against next planes
-          for (int w = 0; w < nTrisToAdd; w++)
-            listTriangles.push_back(sclipped[w]);
+          std::swap(pIn, pOut);
+          nIn = nOut;
+          if (nIn == 0)
+            break;
         }
-        nNewTriangles = listTriangles.size();
       }
 
-      for (auto &triRaster : listTriangles) {
+      for (int r = 0; r < nIn; r++) {
+        GFX3D::triangle &triRaster = pIn[r];
         // Scale to viewport
         /*triRaster.p[0].x *= -1.0f;
         triRaster.p[1].x *= -1.0f;
@@ -1194,8 +1203,99 @@ void GFX3D::RasterTriangle(int x1, int y1, float u1, float v1, float w1,
   int dcb2 = c3.b - c1.b;
   int dca2 = c3.a - c1.a;
 
-  float tex_u, tex_v, tex_w;
-  float col_r, col_g, col_b, col_a;
+  // Flags and the texture pointer are constant for the whole triangle, so
+  // decide once here instead of re-testing them on every pixel.
+  const bool bTextured = (nFlags & GFX3D::RENDER_TEXTURED) && spr != nullptr;
+  const bool bDepth = (nFlags & GFX3D::RENDER_DEPTH) != 0;
+
+  // Flat shading gives all three vertices the same colour, which is what the
+  // whole RENDER_FLAT path produces. Interpolating a constant costs four
+  // multiply-adds and four float-to-byte conversions per pixel to arrive back
+  // at the value we started with -- and not even reliably, since (1-t)*c + t*c
+  // can land just under c and truncate to c-1. Detected once per triangle and
+  // hoisted out. The compiler cannot do this: it has no way to know the three
+  // colours are equal.
+  const bool bFlatColour = !bTextured && c1.n == c2.n && c2.n == c3.n;
+  const drz::Color flatColour = c1;
+
+  // A flat span with depth testing writes one constant colour per surviving
+  // pixel. Going through DrawPixel for that costs an indirect call and a
+  // redundant bounds check per pixel -- DepthIndex has already established
+  // the pixel is on screen. Backends that expose their buffer skip both.
+  drz::Color *const pixelBuffer =
+      (bFlatColour && bDepth) ? _gfx->GetPixelBuffer() : nullptr;
+
+  // Fills one horizontal span. Both halves of the triangle ran identical
+  // copies of this loop; it is written once here so the work skipped below
+  // is skipped in both.
+  auto span = [&](int y, int ax, int bx, float su, float sv, float sw,
+                  float eu, float ev, float ew, float sr, float sg, float sb,
+                  float sa, float er, float eg, float eb, float ea) {
+    const float tstep = 1.0f / ((float)(bx - ax));
+    float t = 0.0f;
+    for (int j = ax; j < bx; j++) {
+      // (1 - t) was recomputed for each of the seven attributes.
+      const float it = 1.0f - t;
+
+      // Depth first. The old order interpolated the colour, converted it to
+      // bytes and only then tested depth, so every occluded pixel paid for a
+      // shade that was thrown away -- and a closed mesh occludes plenty.
+      const float tex_w = it * sw + t * ew;
+      int depthIndex = 0;
+      if (bDepth && (!DepthIndex(j, y, _screenW, _screenH, depthIndex) ||
+                     tex_w <= m_DepthBuffer[depthIndex])) {
+        t += tstep;
+        continue;
+      }
+
+      if (bFlatColour) {
+        if (pixelBuffer != nullptr) {
+          // depthIndex is the same linear index as the pixel buffer's, and
+          // DepthIndex already bounds-checked it.
+          pixelBuffer[depthIndex] = flatColour;
+          m_DepthBuffer[depthIndex] = tex_w;
+        } else if (bDepth) {
+          if (_gfx->DrawPixel(j, y, flatColour))
+            m_DepthBuffer[depthIndex] = tex_w;
+        } else {
+          _gfx->DrawPixel(j, y, flatColour);
+        }
+        t += tstep;
+        continue;
+      }
+
+      float pixel_r = it * sr + t * er;
+      float pixel_g = it * sg + t * eg;
+      float pixel_b = it * sb + t * eb;
+      float pixel_a = it * sa + t * ea;
+
+      // u and v are read only through the sampler, so interpolating them
+      // with no texture bound was pure waste.
+      if (bTextured) {
+        const float tex_u = it * su + t * eu;
+        const float tex_v = it * sv + t * ev;
+        const float inv_w = 1.0f / tex_w;
+        drz::Color sample = spr->Sample(tex_u * inv_w, tex_v * inv_w);
+        pixel_r *= sample.r / 255.0f;
+        pixel_g *= sample.g / 255.0f;
+        pixel_b *= sample.b / 255.0f;
+        pixel_a *= sample.a / 255.0f;
+      }
+
+      // static_cast, not uint8_t(pixel_r): the latter parses as a parameter
+      // declaration here and turns the whole line into a function declaration.
+      const drz::Color c(
+          static_cast<uint8_t>(pixel_r), static_cast<uint8_t>(pixel_g),
+          static_cast<uint8_t>(pixel_b), static_cast<uint8_t>(pixel_a));
+      if (bDepth) {
+        if (_gfx->DrawPixel(j, y, c))
+          m_DepthBuffer[depthIndex] = tex_w;
+      } else {
+        _gfx->DrawPixel(j, y, c);
+      }
+      t += tstep;
+    }
+  };
 
   float dax_step = 0, dbx_step = 0, du1_step = 0, dv1_step = 0, du2_step = 0,
         dv2_step = 0, dw1_step = 0, dw2_step = 0, dcr1_step = 0, dcr2_step = 0,
@@ -1207,42 +1307,41 @@ void GFX3D::RasterTriangle(int x1, int y1, float u1, float v1, float w1,
   if (dy2)
     dbx_step = dx2 / (float)abs(dy2);
 
-  if (dy1)
-    du1_step = du1 / (float)abs(dy1);
-  if (dy1)
-    dv1_step = dv1 / (float)abs(dy1);
+  // w carries depth, so it is always needed. u/v are read only through the
+  // sampler and the colour steps only by the interpolating path, and this
+  // model draws ~18 pixels per triangle -- so a dozen divisions of setup that
+  // nothing goes on to read is not a rounding error in the budget, it is a
+  // meaningful share of the triangle's whole cost.
   if (dy1)
     dw1_step = dw1 / (float)abs(dy1);
-
-  if (dy2)
-    du2_step = du2 / (float)abs(dy2);
-  if (dy2)
-    dv2_step = dv2 / (float)abs(dy2);
   if (dy2)
     dw2_step = dw2 / (float)abs(dy2);
 
-  if (dy1)
-    dcr1_step = dcr1 / (float)abs(dy1);
-  if (dy1)
-    dcg1_step = dcg1 / (float)abs(dy1);
-  if (dy1)
-    dcb1_step = dcb1 / (float)abs(dy1);
-  if (dy1)
-    dca1_step = dca1 / (float)abs(dy1);
+  if (bTextured) {
+    if (dy1) {
+      du1_step = du1 / (float)abs(dy1);
+      dv1_step = dv1 / (float)abs(dy1);
+    }
+    if (dy2) {
+      du2_step = du2 / (float)abs(dy2);
+      dv2_step = dv2 / (float)abs(dy2);
+    }
+  }
 
-  if (dy2)
-    dcr2_step = dcr2 / (float)abs(dy2);
-  if (dy2)
-    dcg2_step = dcg2 / (float)abs(dy2);
-  if (dy2)
-    dcb2_step = dcb2 / (float)abs(dy2);
-  if (dy2)
-    dca2_step = dca2 / (float)abs(dy2);
-
-  float pixel_r = 0.0f;
-  float pixel_g = 0.0f;
-  float pixel_b = 0.0f;
-  float pixel_a = 1.0f;
+  if (!bFlatColour) {
+    if (dy1) {
+      dcr1_step = dcr1 / (float)abs(dy1);
+      dcg1_step = dcg1 / (float)abs(dy1);
+      dcb1_step = dcb1 / (float)abs(dy1);
+      dca1_step = dca1 / (float)abs(dy1);
+    }
+    if (dy2) {
+      dcr2_step = dcr2 / (float)abs(dy2);
+      dcg2_step = dcg2 / (float)abs(dy2);
+      dcb2_step = dcb2 / (float)abs(dy2);
+      dca2_step = dca2 / (float)abs(dy2);
+    }
+  }
 
   if (dy1) {
     for (int i = y1; i <= y2; i++) {
@@ -1278,61 +1377,8 @@ void GFX3D::RasterTriangle(int x1, int y1, float u1, float v1, float w1,
         std::swap(col_sa, col_ea);
       }
 
-      tex_u = tex_su;
-      tex_v = tex_sv;
-      tex_w = tex_sw;
-      col_r = col_sr;
-      col_g = col_sg;
-      col_b = col_sb;
-      col_a = col_sa;
-
-      float tstep = 1.0f / ((float)(bx - ax));
-      float t = 0.0f;
-
-      for (int j = ax; j < bx; j++) {
-        tex_u = (1.0f - t) * tex_su + t * tex_eu;
-        tex_v = (1.0f - t) * tex_sv + t * tex_ev;
-        tex_w = (1.0f - t) * tex_sw + t * tex_ew;
-        col_r = (1.0f - t) * col_sr + t * col_er;
-        col_g = (1.0f - t) * col_sg + t * col_eg;
-        col_b = (1.0f - t) * col_sb + t * col_eb;
-        col_a = (1.0f - t) * col_sa + t * col_ea;
-
-        pixel_r = col_r;
-        pixel_g = col_g;
-        pixel_b = col_b;
-        pixel_a = col_a;
-
-        if (nFlags & GFX3D::RENDER_TEXTURED) {
-          if (spr != nullptr) {
-            const float inv_w = 1.0f / tex_w;
-            drz::Color sample = spr->Sample(tex_u * inv_w, tex_v * inv_w);
-            pixel_r *= sample.r / 255.0f;
-            pixel_g *= sample.g / 255.0f;
-            pixel_b *= sample.b / 255.0f;
-            pixel_a *= sample.a / 255.0f;
-          }
-        }
-
-        if (nFlags & GFX3D::RENDER_DEPTH) {
-          int depthIndex;
-          if (DepthIndex(j, i, _screenW, _screenH, depthIndex) &&
-              tex_w > m_DepthBuffer[depthIndex])
-            if (_gfx->DrawPixel(j, i,
-                                drz::Color(uint8_t(pixel_r * 1.0f),
-                                           uint8_t(pixel_g * 1.0f),
-                                           uint8_t(pixel_b * 1.0f),
-                                           uint8_t(pixel_a * 1.0f))))
-              m_DepthBuffer[depthIndex] = tex_w;
-        } else {
-          _gfx->DrawPixel(
-              j, i,
-              drz::Color(uint8_t(pixel_r * 1.0f), uint8_t(pixel_g * 1.0f),
-                         uint8_t(pixel_b * 1.0f), uint8_t(pixel_a * 1.0f)));
-        }
-
-        t += tstep;
-      }
+      span(i, ax, bx, tex_su, tex_sv, tex_sw, tex_eu, tex_ev, tex_ew, col_sr,
+           col_sg, col_sb, col_sa, col_er, col_eg, col_eb, col_ea);
     }
   }
 
@@ -1354,24 +1400,23 @@ void GFX3D::RasterTriangle(int x1, int y1, float u1, float v1, float w1,
   du1_step = 0;
   dv1_step = 0;
   if (dy1)
-    du1_step = du1 / (float)abs(dy1);
-  if (dy1)
-    dv1_step = dv1 / (float)abs(dy1);
-  if (dy1)
     dw1_step = dw1 / (float)abs(dy1);
+
+  if (bTextured && dy1) {
+    du1_step = du1 / (float)abs(dy1);
+    dv1_step = dv1 / (float)abs(dy1);
+  }
 
   dcr1_step = 0;
   dcg1_step = 0;
   dcb1_step = 0;
   dca1_step = 0;
-  if (dy1)
+  if (!bFlatColour && dy1) {
     dcr1_step = dcr1 / (float)abs(dy1);
-  if (dy1)
     dcg1_step = dcg1 / (float)abs(dy1);
-  if (dy1)
     dcb1_step = dcb1 / (float)abs(dy1);
-  if (dy1)
     dca1_step = dca1 / (float)abs(dy1);
+  }
 
   if (dy1) {
     for (int i = y2; i <= y3; i++) {
@@ -1407,61 +1452,8 @@ void GFX3D::RasterTriangle(int x1, int y1, float u1, float v1, float w1,
         std::swap(col_sa, col_ea);
       }
 
-      tex_u = tex_su;
-      tex_v = tex_sv;
-      tex_w = tex_sw;
-      col_r = col_sr;
-      col_g = col_sg;
-      col_b = col_sb;
-      col_a = col_sa;
-
-      float tstep = 1.0f / ((float)(bx - ax));
-      float t = 0.0f;
-
-      for (int j = ax; j < bx; j++) {
-        tex_u = (1.0f - t) * tex_su + t * tex_eu;
-        tex_v = (1.0f - t) * tex_sv + t * tex_ev;
-        tex_w = (1.0f - t) * tex_sw + t * tex_ew;
-        col_r = (1.0f - t) * col_sr + t * col_er;
-        col_g = (1.0f - t) * col_sg + t * col_eg;
-        col_b = (1.0f - t) * col_sb + t * col_eb;
-        col_a = (1.0f - t) * col_sa + t * col_ea;
-
-        pixel_r = col_r;
-        pixel_g = col_g;
-        pixel_b = col_b;
-        pixel_a = col_a;
-
-        if (nFlags & GFX3D::RENDER_TEXTURED) {
-          if (spr != nullptr) {
-            const float inv_w = 1.0f / tex_w;
-            drz::Color sample = spr->Sample(tex_u * inv_w, tex_v * inv_w);
-            pixel_r *= sample.r / 255.0f;
-            pixel_g *= sample.g / 255.0f;
-            pixel_b *= sample.b / 255.0f;
-            pixel_a *= sample.a / 255.0f;
-          }
-        }
-
-        if (nFlags & GFX3D::RENDER_DEPTH) {
-          int depthIndex;
-          if (DepthIndex(j, i, _screenW, _screenH, depthIndex) &&
-              tex_w > m_DepthBuffer[depthIndex])
-            if (_gfx->DrawPixel(j, i,
-                                drz::Color(uint8_t(pixel_r * 1.0f),
-                                           uint8_t(pixel_g * 1.0f),
-                                           uint8_t(pixel_b * 1.0f),
-                                           uint8_t(pixel_a * 1.0f))))
-              m_DepthBuffer[depthIndex] = tex_w;
-        } else {
-          _gfx->DrawPixel(
-              j, i,
-              drz::Color(uint8_t(pixel_r * 1.0f), uint8_t(pixel_g * 1.0f),
-                         uint8_t(pixel_b * 1.0f), uint8_t(pixel_a * 1.0f)));
-        }
-
-        t += tstep;
-      }
+      span(i, ax, bx, tex_su, tex_sv, tex_sw, tex_eu, tex_ev, tex_ew, col_sr,
+           col_sg, col_sb, col_sa, col_er, col_eg, col_eb, col_ea);
     }
   }
 }
