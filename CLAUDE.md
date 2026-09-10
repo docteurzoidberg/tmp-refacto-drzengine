@@ -125,8 +125,10 @@ TestApp.{h,cpp}, test_drzengine_pge.cpp   manual smoke app at repo root
 
 There are two, and they overlap. Know which one you are touching:
 
-- **`gfx3d.h` / `src/gfx3d.cpp` — `drz::GFX3D`.** The active one, currently untracked in
-  git (new work). A port of `olcPGEX_Graphics3D`: `GFX3D::Math` (`mat4x4`, `vec3d` with
+- **`gfx3d.h` / `src/gfx3d.cpp` — `drz::GFX3D`.** The active one, and since 2026-09-10 the
+  only one that actually rasterises: vanassistant's `SceneWidget` used to be a second,
+  self-contained renderer (painter's algorithm, no depth buffer) and now delegates here.
+  A port of `olcPGEX_Graphics3D`: `GFX3D::Math` (`mat4x4`, `vec3d` with
   `w = 1`), `PipeLine` (projection / camera / transform / textures / 4 light slots /
   clipping), triangle rasterisers with a `float* m_DepthBuffer`. It renders through
   `IDrzGraphics` only, via the static `_gfx` set by `GFX3D::ConfigureDisplay(gfx)` — call
@@ -136,6 +138,9 @@ There are two, and they overlap. Know which one you are touching:
   point into the caller's vertex vector. `TODO.md` still lists it as unfinished. Prefer
   `GFX3D` for new code; do not mix `graphics::vec3d` (`w` uninitialised by
   `Vector::Add`/`Sub`) with `GFX3D::vec3d` (`w = 1`) without converting explicitly.
+  `Matrix4x4` also disagrees with itself: `CreateTranslationMatrix` writes the offset to
+  column 3 while `MultiplyVector` reads it from row 3, so a translation built that way is
+  silently ignored. Callers work around it by adding the offset by hand.
 
 ## Conventions
 
@@ -209,6 +214,50 @@ there (Added / Changed / Fixed / Performance / Known issues).
   Same stale name in vanassistant's CMakeLists, where it is harmless.
 - `DrzEngine_PGE::Now()` reads `start`, which is only assigned in `Start()`; calling `Now()`
   before the main loop returns garbage.
+- **The value structs have no member initialisers**, and that has produced four separate
+  runtime bugs so far. `graphics::vec3d` is a bare `{float x, y, z, w;}`, and `PipeLine`'s
+  `sLight` was the same until it was value-initialised. Declaring one as a class member
+  without an explicit initialiser gives you indeterminate data that the renderer then reads
+  every frame — a camera position, or a light `type` that `Render()` switches on. Always
+  initialise them at the declaration; adding defaults to the structs themselves would close
+  the category outright and is worth doing.
+
+## Performance
+
+Measure with **`vanassistant/tools/gfx3d-bench`**, a headless benchmark that drives this
+pipeline against a recording `IDrzGraphics`. It exists because `obj-viewer` cannot measure
+anything: it is an interactive X11 app that never exits, times nothing, and advances its
+rotation from the wall clock, so no two runs render the same frames.
+
+```bash
+cmake -S tools/gfx3d-bench -B tools/build.gfx3dbench    # from the vanassistant repo
+cmake --build tools/build.gfx3dbench -j$(nproc)
+./tools/gfx3dbench models/J7_body.obj --json /tmp/base.json     # before
+./tools/gfx3dbench models/J7_body.obj --compare /tmp/base.json  # after
+```
+
+The workload is deterministic (a full turn split across `--frames`), so two runs with the
+same arguments submit identical geometry and are directly comparable.
+
+**Run-to-run spread of the frame median is ~3% at the default 1000 frames (~8% at 240).
+A delta under 3% is not a result.** `--compare` labels those `(noise)`.
+
+Baseline on x86_64 at `-O2`, J7 body (1456 triangles submitted, ~522 rasterised after
+culling), 2026-09-10:
+
+- 320x240 (the app's real resolution): median 0.36 ms, ~2600 FPS, 9578 px/frame.
+- A resolution sweep from 160x120 to 800x600 splits that into **~0.22 ms of fixed geometry
+  cost** (transform, cull, clip) and **~0.019 us/pixel** of fill. At 320x240 the pipeline is
+  therefore roughly **55% geometry / 45% fill** — optimising the rasteriser alone cannot win
+  more than half the frame.
+- Lighting is free (0.293 vs 0.297 ms without it, inside the noise). Do not spend effort
+  there.
+- Dropping `RENDER_CULL_CW` takes the frame from 0.293 to 0.703 ms for only 37% more pixels:
+  the cost is the extra triangles going through transform and clipping, not fill.
+
+These numbers are x86_64. The real target is a Pi Zero W; the bench is single-platform for
+now, so do not extrapolate a desktop win to the embedded build without measuring there.
+vanassistant carries a `vanassistant-gfx3d-bench` skill with the same protocol.
 
 ## Consumer: vanassistant
 
