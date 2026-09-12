@@ -10,6 +10,13 @@ everything lands under *Unreleased* until a first release is cut.
 
 ### Added
 
+- **`drz::Model::color`** — base colour of a `drz::Model` (`include/DrzGraphics.h`),
+  default `WHITE`. `SetupModel()` stamps it on every `triangleref` it builds, which
+  until now left `triangleref::color` at its default black and unused; triangles can be
+  recoloured individually afterwards through `tris[i].color`. Set it before calling
+  `SetupModel()`. Existing models are unaffected: they never read the field and keep
+  rendering white.
+
 - **`IDrzGraphics::GetPixelBuffer()`** — optional direct access to a backend's flat
   32-bit pixel buffer, so `GFX3D`'s rasteriser can fill a flat span without a virtual
   `DrawPixel` call and a redundant bounds check per pixel. Not pure virtual: the default

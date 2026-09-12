@@ -548,6 +548,12 @@ public:
   std::vector<face> *faces;
   std::vector<triangleref> tris;
 
+  // Base colour of the model. SetupModel() stamps it on every triangle, so
+  // set it before calling SetupModel(); triangles can then be recoloured one
+  // by one through tris[i].color (a rim on a tyre, say). Renderers that light
+  // the scene multiply this by the light intensity.
+  Color color = WHITE;
+
   Matrix4x4 rotationMatrix;
   Matrix4x4 translationMatrix;
 
@@ -558,7 +564,7 @@ private:
       vec3d *p0 = &verts->at(f->f[0] - 1);
       vec3d *p1 = &verts->at(f->f[1] - 1);
       vec3d *p2 = &verts->at(f->f[2] - 1);
-      tris.push_back({p0, p1, p2});
+      tris.push_back({p0, p1, p2, color});
     }
   }
 };
