@@ -9,25 +9,29 @@ where you want, the answer is almost always in here.
 
 **`(x, y)` is the top-left corner of the text's *line box*.** Not the baseline,
 not the top of the first letter's ink. The line box is a band of fixed height
-for a given font: it starts at `y`, and its baseline is `GetFontAscent()`
-pixels lower.
+for a given font: it starts at `y`, and its baseline — the boundary under the
+bottom row of the capitals — is `GetFontAscent()` rows lower.
 
 ```
- y  ──►  ┌───────────────────────────────────────┐  ▲
+ y  ──►  ┌───────────────────────────────────────┐  ▲  row y
          │  (leading: only the tallest glyph,     │  │
-         │   e.g. '(' or '|', reaches this high)  │  │ GetFontAscent()
+         │   e.g. '(' or '|', reaches this high)  │  │ GetFontAscent() rows
          │  ██████  █████   ████  ██  ██          │  │
          │  ██  ██  ██  ██ ██     ██ ██           │  │
          │  ██████  █████  ██     ████            │  │
          │  ██  ██  ██  ██ ██     ██ ██   ██  ██  │  │
-         │  ██████  ██  ██  ████  ██  ██   ████   │  │
+         │  ██████  ██  ██  ████  ██  ██   ████   │  │  row y + ascent - 1
 baseline ├──────────────────────────────────▀▀────┤  ▼
-         │  descenders (g, p, q, y) hang here  ██ │
+         │  descenders (g, p, q, y) hang here  ██ │     row y + ascent
          │                                    ███ │
          └───────────────────────────────────────┘
  x  ──►  ▲
          │ first glyph's ink starts at x + glyph.xOffset (usually x + 1)
 ```
+
+So capitals and digits end on row `y + GetFontAscent() - 1`, descenders start
+on row `y + GetFontAscent()`, and a rect of height `GetFontAscent()` at `y`
+covers exactly the capitals.
 
 Consequences you can rely on:
 
@@ -40,9 +44,9 @@ Consequences you can rely on:
   `"5"`, `"g"`, `"BACK IN 5"` all share the same baseline for the same `y`.
   A value that changes every frame (a speed, a countdown) does not jump.
 - Capitals and digits start a few pixels below `y` (2 px for
-  `Solid_Mono8pt7b`, whose tallest glyphs reach 12 px above the baseline while
-  capitals reach 10). That gap is the font's leading, and `GetTextBounds`
-  reports it — see below.
+  `Solid_Mono8pt7b`: its tallest glyphs are 13 rows above the baseline, its
+  capitals 11). That gap is the font's leading, and `GetTextBounds` reports
+  it — see below.
 - A `'\n'` in the string moves to the next line box, `font.yAdvance` pixels
   lower, and resets the pen to **screen column 0**, not to `x`. Multi-line
   text at `x > 0` is therefore a caller-side loop, one `DrawText` per line
@@ -86,37 +90,40 @@ instead: `DrawText(text, x, y)` with a fixed `y` and centre only horizontally.
 
 ## `GetFontAscent()`
 
-Pixels from the top of the line box to the baseline for the current font, i.e.
-the height of its tallest glyph above the baseline (`max(-glyph.yOffset)`,
-scanned once per font and cached). `0` when no font is selected.
+Number of pixel rows the line box has above the baseline for the current
+font, i.e. the height of its tallest glyph above the baseline
+(`max(-glyph.yOffset) + 1`, scanned once per font and cached). `0` when no
+font is selected.
 
 You need it whenever something must sit relative to the **baseline** rather
-than to the ink: a text cursor whose bottom rests on the baseline is drawn at
-`y + gfx->GetFontAscent() - cursorHeight`; an underline goes at
-`y + gfx->GetFontAscent() + 1`.
+than to the ink: a text cursor whose bottom lines up with the bottom of the
+capitals is a `cursorHeight`-tall rect at
+`y + gfx->GetFontAscent() - cursorHeight` (rows `y + ascent - cursorHeight`
+to `y + ascent - 1`); an underline is row `y + gfx->GetFontAscent()`.
 
 Ascent and `yAdvance` (line spacing, from the font struct) of the fonts
 shipped with vanassistant, for reference:
 
 | Font | ascent | yAdvance | notes |
 | --- | --- | --- | --- |
-| `Solid_Mono4pt7b` | 5 | 11 | |
-| `Solid_Mono6pt7b` | 9 | 16 | |
-| `Solid_Mono8pt7b` | 12 | 22 | capitals/digits are 11 px tall, top at `y + 2` |
-| `SevenSeg30pt7b` | 58 | 59 | `'1'` is drawn in the right part of its 42 px cell |
+| `Solid_Mono4pt7b` | 6 | 11 | capitals are 5 rows tall: `y + 1 .. y + 5` |
+| `Solid_Mono6pt7b` | 10 | 16 | |
+| `Solid_Mono8pt7b` | 13 | 22 | capitals/digits are 11 rows tall: `y + 2 .. y + 12` |
+| `SevenSeg30pt7b` | 59 | 59 | `'1'` is drawn in the right part of its 42 px cell |
 
 ## Why not the baseline (Adafruit GFX)?
 
 The rasteriser in `src/DrzGraphics.cpp` (`_drawChar`, `_writeChar`,
 `_charBounds`, `_getTextBounds`) is a port of Adafruit GFX and its fonts are
 Adafruit `GFXfont` tables: each glyph stores `yOffset`, the (negative)
-distance from the **baseline** to its top row. In Adafruit GFX the cursor *is*
-the baseline, so `setCursor(0, 0); print("A")` draws above the screen — and
-every consumer ends up adding the glyph height by hand.
+distance from the **pen row** to its top row, the pen row being the bottom row
+of the capitals (`yOffset + height == 1` for an `'A'`). In Adafruit GFX the
+cursor *is* that row, so `setCursor(0, 0); print("A")` draws above the
+screen — and every consumer ends up adding the glyph height by hand.
 
-`DrzGraphics::DrawText` and `GetTextBounds` hide that: they shift the pen down
-by `GetFontAscent()` before handing the string to the Adafruit code. The
-private `_*` helpers still speak baseline; nothing outside `DrzGraphics.cpp`
+`DrzGraphics::DrawText` and `GetTextBounds` hide that: they put the pen on row
+`y + GetFontAscent() - 1` before handing the string to the Adafruit code. The
+private `_*` helpers still speak pen row; nothing outside `DrzGraphics.cpp`
 should call them.
 
 History: until 2026-09-12 the public `DrawText` *was* baseline-based, which is

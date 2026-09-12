@@ -599,13 +599,14 @@ public:
    * corner of the text's line box.
    *
    * The line box is the fixed-height band a line of the current font
-   * occupies: it starts at @p y and its baseline sits at
-   * `y + GetFontAscent()`. Glyphs are placed relative to that baseline, so
-   * the first row of ink is at `y + GetFontAscent() + glyph.yOffset`, which is
-   * `y` for the tallest glyph of the font and a few pixels lower for a
-   * plain capital or digit — the same for every string, so text that
-   * changes ("5" -> "6", "10" -> "9") never jumps vertically.
-   * Descenders (g, p, y, ...) extend below the baseline.
+   * occupies: it starts at @p y, and its baseline — the boundary under the
+   * bottom row of the capitals — is `GetFontAscent()` rows lower, so
+   * capitals end on row `y + GetFontAscent() - 1` and descenders
+   * (g, p, y, ...) start on row `y + GetFontAscent()`. The first row of
+   * ink is `y + GetFontAscent() - 1 + glyph.yOffset`: `y` for the tallest
+   * glyph of the font, a few rows lower for a plain capital or digit — the
+   * same for every string, so text that changes ("5" -> "6", "10" -> "9")
+   * never jumps vertically.
    *
    * Therefore `DrawText(s, 0, 0)` is entirely visible at the top of the
    * screen, and with `bounds = GetTextBounds(s, 0, 0)` a text is centred in
@@ -651,12 +652,15 @@ public:
   virtual rect GetTextBounds(const std::string &text, int x, int y) = 0;
 
   /**
-   * @brief Distance in pixels from the top of a line box to its baseline
-   * for the current font: the height of its tallest glyph above the
-   * baseline. 0 when no font is selected.
+   * @brief Number of pixel rows a line box has above its baseline for the
+   * current font: rows `y .. y + GetFontAscent() - 1` hold the tallest
+   * glyph, capitals and digits; descenders start on row
+   * `y + GetFontAscent()`. 0 when no font is selected.
    *
-   * Use it to place something relative to the baseline, e.g. a text cursor
-   * whose bottom must sit on the baseline: `y + GetFontAscent() - cursorH`.
+   * Use it to place something relative to the baseline: a text cursor
+   * whose bottom lines up with the bottom of the capitals is a
+   * `cursorH`-tall rect at `y + GetFontAscent() - cursorH`; an underline
+   * is row `y + GetFontAscent()`.
    */
   virtual int GetFontAscent();
 
@@ -698,7 +702,8 @@ public:
 
   static rect GetTextBounds(const std::string &text, int x, int y);
 
-  // Top of line box -> baseline, for the current font (0 without a font).
+  // Rows above the baseline in a line box of the current font (0 without a
+  // font): capitals end on row y + GetFontAscent() - 1.
   static int GetFontAscent();
 
 private:

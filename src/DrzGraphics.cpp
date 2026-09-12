@@ -65,11 +65,11 @@ namespace drz {
     if(!currentFont) {
       return {x, y, 0, 0};
     }
-    // The glyph rasteriser works from the baseline; (x, y) is the top of the
-    // line box, so shift down by the ascent exactly as DrawText does.
+    // The glyph rasteriser works from the pen row; (x, y) is the top of the
+    // line box, so shift down exactly as DrawText does.
     int16_t x1, y1;
     uint16_t w1, h1;
-    _getTextBounds(text, x, y + GetFontAscent(), &x1, &y1, &w1, &h1);
+    _getTextBounds(text, x, y + GetFontAscent() - 1, &x1, &y1, &w1, &h1);
     if (text.empty() || w1 == 0 || h1 == 0) {
       // No ink: _getTextBounds leaves its outputs untouched for "" and
       // reports the baseline otherwise; anchor the empty rect at (x, y).
@@ -82,9 +82,10 @@ namespace drz {
     if(!currentFont) {
       return;
     }
-    // (x, y) is the top-left of the line box; the pen (cursor) is the
-    // baseline, one ascent lower. See IDrzGraphics::DrawText.
-    SetCursorPos(x, y + GetFontAscent());
+    // (x, y) is the top-left of the line box; the Adafruit pen row is the
+    // bottom row of the capitals, i.e. the last row above the baseline.
+    // See IDrzGraphics::DrawText.
+    SetCursorPos(x, y + GetFontAscent() - 1);
     SetTextForegroundColor(color);
     _writeText(text);
   }
@@ -98,13 +99,14 @@ namespace drz {
     if (it != fontAscents.end()) {
       return it->second;
     }
-    // Glyph yOffset is the (negative) distance from the baseline to the top
-    // of the glyph, so the ascent is the largest -yOffset over the font.
+    // Glyph yOffset is the (negative) row of the glyph's top relative to the
+    // pen row, and the pen row is the bottom row of the capitals, so the
+    // rows above the baseline number -yOffset + 1 for the tallest glyph.
     int ascent = 0;
     for (int c = f->first; c <= f->last; c++) {
       const fontglyph &g = f->glyph[c - f->first];
-      if (g.height > 0 && -g.yOffset > ascent) {
-        ascent = -g.yOffset;
+      if (g.height > 0 && -g.yOffset + 1 > ascent) {
+        ascent = -g.yOffset + 1;
       }
     }
     fontAscents[f] = ascent;

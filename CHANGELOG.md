@@ -10,12 +10,16 @@ everything lands under *Unreleased* until a first release is cut.
 
 ### Added
 
-- **`IDrzGraphics::GetFontAscent()`** / `DrzGraphics::GetFontAscent()` — distance in
-  pixels from the top of a line box to the baseline for the current font (largest
-  `-yOffset` over its glyphs, scanned once per font and cached). Needed to place
-  anything relative to the baseline now that `DrawText` takes the top of the line box,
-  e.g. a text cursor: `y + GetFontAscent() - cursorHeight`. Default implementation on
-  the interface, so existing `IDrzGraphics` backends keep compiling.
+- **`IDrzGraphics::GetFontAscent()`** / `DrzGraphics::GetFontAscent()` — number of
+  pixel rows a line box has above its baseline for the current font, the baseline
+  being the boundary under the capitals (largest `-yOffset + 1` over its glyphs,
+  scanned once per font and cached; 13 for `Solid_Mono8pt7b`, whose capitals occupy
+  rows `y + 2 .. y + 12`). Needed to place anything relative to the baseline now that
+  `DrawText` takes the top of the line box, e.g. a text cursor whose bottom lines up
+  with the capitals: `y + GetFontAscent() - cursorHeight`. Default implementation on
+  the interface, so existing `IDrzGraphics` backends keep compiling. (`bc3923f`,
+  first shipped as `max(-yOffset)`, one row short, which put such a cursor one row
+  above the capitals' bottom — corrected before any release.)
 - **`docs/text-rendering.md`** — the contract of `DrawText`, `GetTextBounds` and
   `GetFontAscent` with the alignment recipes (centre, flush top, right-align) and the
   ascent / `yAdvance` of the fonts vanassistant ships.
@@ -70,7 +74,7 @@ everything lands under *Unreleased* until a first release is cut.
   ported from). With the old contract `DrawText("BACK IN 5", 0, 0)` painted rows
   `-10..0` — invisible but for its last row — and every consumer compensated with
   ad-hoc `y + bounds.h`, `y + 60`, `y - 2`. The pen is now placed at
-  `y + GetFontAscent()` internally, so text drawn at `y = 0` is fully visible and the
+  `y + GetFontAscent() - 1` internally, so text drawn at `y = 0` is fully visible and the
   vertical position depends on the font only, never on the string (a changing value
   no longer jumps). `GetTextBounds(text, x, y)` follows the same convention and keeps
   returning the ink rectangle `DrawText` would paint, so `bounds.y - y >= 0` is the
