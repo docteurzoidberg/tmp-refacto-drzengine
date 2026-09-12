@@ -9,7 +9,7 @@ custom PGE platform + renderer. The target hardware is small and slow: Raspberry
 320x240-ish screens, buildroot rootfs.
 
 > **Status: pre-release, extraction in progress.** DrzEngine is the reusable part being pulled
-> out of `vanassistant`, which is still its only consumer. Version is `0.1.0` with no git tag,
+> out of `vanassistant`, which is still its only consumer. Version `0.1.0` is tagged,
 > the public API is not stable yet, and there is no automated test suite.
 > See [CHANGELOG.md](CHANGELOG.md) for what has landed and what is known broken.
 

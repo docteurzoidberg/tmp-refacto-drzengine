@@ -3,10 +3,15 @@
 Notable changes to DrzEngine. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-Nothing is tagged yet (`project(... VERSION 0.1.0)` in `CMakeLists.txt`, no git tags), so
-everything lands under *Unreleased* until a first release is cut.
+Releases are git tags named after `project(... VERSION x.y.z)` in `CMakeLists.txt`; work in
+progress lands under *Unreleased* until the next one is cut.
 
 ## [Unreleased]
+
+## [0.1.0] - 2026-09-12
+
+First tagged state of the extraction: GFX3D pipeline, framebuffer backend, top-of-line-box
+text rendering.
 
 ### Added
 
