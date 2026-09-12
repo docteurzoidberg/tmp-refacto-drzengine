@@ -27,10 +27,14 @@ everything lands under *Unreleased* until a first release is cut.
   -> 0.211 ms, a further 7% on top of the 28.6% below, image unchanged. A small part of
   that is the benchmark's own per-pixel counter disappearing along the direct path.
 
-  **No backend implements it yet**, and one should only do so if bypassing `DrawPixel`
-  is acceptable for it — the direct write skips `SetPaintMode` handling, which is fine
-  for opaque 3D but not in general, and it assumes the buffer is `Color`-sized and
-  `GetScreenWidth()` pixels per row.
+  `DrzEngine_PGE` implements it (`include/DrzEngine_PGE.h`): it hands out the PGE draw
+  target's data, and only when that target is exactly `GetScreenWidth()` x
+  `GetScreenHeight()`, since the caller assumes that row pitch. Measured with
+  vanassistant's `widgetbench --frames 1000 --compare` (x86, -O2, 320x240): the
+  `assistant` page 0.162 -> 0.110 ms (-32%), `menu` 0.306 -> 0.280 ms (-8.5%), both
+  bit-identical under `--verify`. The direct write skips `SetPaintMode` handling, which
+  is fine for the opaque flat spans the rasteriser sends through it but not in general
+  — do not route anything else through this pointer.
 
 - **`GFX3D` 3D pipeline** — `include/gfx3d.h`, `src/gfx3d.cpp`, a port of
   `olcPGEX_Graphics3D`: `GFX3D::Math` (`mat4x4`/`vec3d`), `PipeLine` (projection, camera,

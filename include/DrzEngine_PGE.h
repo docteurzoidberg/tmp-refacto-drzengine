@@ -113,6 +113,15 @@ class DrzEngine_PGE : public IDrzGraphics, public IDrzInputs, public IDrzEngine
     int GetScreenWidth() override { return width; }
     int GetScreenHeight() override { return height; }
 
+    // The 3D rasteriser fills opaque flat spans through this instead of one
+    // DrawPixel call per pixel. Only handed out when the draw target has the
+    // row pitch the caller assumes.
+    Color* GetPixelBuffer() override {
+      olc::Sprite* target = pge->GetDrawTarget();
+      if (target == nullptr || target->width != width || target->height != height) return nullptr;
+      return reinterpret_cast<Color*>(target->GetData());
+    }
+
     float GetRandomFloat() override;
 
     #pragma endregion // IDrzGraphics
