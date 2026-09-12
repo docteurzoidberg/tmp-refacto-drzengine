@@ -28,7 +28,8 @@ namespace drz {
       //Draw pixel relative to the widget position
       void DrawPixel(int px, int py, Color p);
 
-      //Draw text relative to the widget position
+      //Draw text relative to the widget position; (px, py) is the top-left
+      //of the line box, see IDrzGraphics::DrawText
       void DrawText(std::string text, int px, int py, Color c);
       //Draw line relative to the widget position
       void DrawLine(int x1, int y1, int x2, int y2, Color c);

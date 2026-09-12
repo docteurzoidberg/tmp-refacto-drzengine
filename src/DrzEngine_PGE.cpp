@@ -175,8 +175,6 @@ void DrzEngine_PGE::DrawText(std::string text, int x, int y, Color color) {
       std::cout << "[!] No font set" << std::endl;
       return;
     } 
-    DrzGraphics::SetCursorPos((int) x, (int) y);
-    DrzGraphics::SetTextForegroundColor(color);
     DrzGraphics::DrawText(text, x, y, color);
 }
 

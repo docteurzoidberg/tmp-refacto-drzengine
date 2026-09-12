@@ -10,6 +10,16 @@ everything lands under *Unreleased* until a first release is cut.
 
 ### Added
 
+- **`IDrzGraphics::GetFontAscent()`** / `DrzGraphics::GetFontAscent()` — distance in
+  pixels from the top of a line box to the baseline for the current font (largest
+  `-yOffset` over its glyphs, scanned once per font and cached). Needed to place
+  anything relative to the baseline now that `DrawText` takes the top of the line box,
+  e.g. a text cursor: `y + GetFontAscent() - cursorHeight`. Default implementation on
+  the interface, so existing `IDrzGraphics` backends keep compiling.
+- **`docs/text-rendering.md`** — the contract of `DrawText`, `GetTextBounds` and
+  `GetFontAscent` with the alignment recipes (centre, flush top, right-align) and the
+  ascent / `yAdvance` of the fonts vanassistant ships.
+
 - **`drz::Model::color`** — base colour of a `drz::Model` (`include/DrzGraphics.h`),
   default `WHITE`. `SetupModel()` stamps it on every `triangleref` it builds, which
   until now left `triangleref::color` at its default black and unused; triangles can be
@@ -55,6 +65,18 @@ everything lands under *Unreleased* until a first release is cut.
 
 ### Changed
 
+- **Breaking: `DrawText(text, x, y, color)` now takes the TOP-LEFT of the text's line
+  box; it used to take the baseline** (the Adafruit GFX convention the rasteriser is
+  ported from). With the old contract `DrawText("BACK IN 5", 0, 0)` painted rows
+  `-10..0` — invisible but for its last row — and every consumer compensated with
+  ad-hoc `y + bounds.h`, `y + 60`, `y - 2`. The pen is now placed at
+  `y + GetFontAscent()` internally, so text drawn at `y = 0` is fully visible and the
+  vertical position depends on the font only, never on the string (a changing value
+  no longer jumps). `GetTextBounds(text, x, y)` follows the same convention and keeps
+  returning the ink rectangle `DrawText` would paint, so `bounds.y - y >= 0` is the
+  leading above the string. **Porting:** delete the compensating offset; to align the
+  ink itself with an edge subtract `bounds.y` / `bounds.x`. See `docs/text-rendering.md`.
+
 - **Breaking:** `IDrzSam::Setup()` replaced by `IDrzSam::Say(std::string)`. (`c579c16`)
 - `drzenginepgefb` now declares its own libpng dependency (`find_package(PNG REQUIRED)` +
   `target_link_libraries(... PRIVATE PNG::PNG)`). PGE auto-selects its libpng image loader
@@ -70,6 +92,18 @@ everything lands under *Unreleased* until a first release is cut.
   (`4b4c1d7`)
 
 ### Fixed
+
+- **Text at a negative coordinate vanished instead of being clipped.**
+  `DrzGraphics::_drawChar` took `uint16_t x, y`; a cursor at `y = -1` became 65535
+  and the whole string landed off-screen. Both are `int` now, so text scrolling off
+  the top or the left is clipped pixel by pixel like any other primitive.
+- **`GetTextBounds("")` returned uninitialised memory.** `_getTextBounds` does not
+  touch its outputs for an empty string; the facade now returns `{x, y, 0, 0}` for an
+  empty string (and for a missing font, instead of `{0, 0, 0, 0}`). The text
+  animators in vanassistant call it with an empty string on the first frame of every
+  line, and were placing their cursor from garbage.
+- `DrzEngine_PGE::DrawText` no longer sets the cursor and colour itself before
+  delegating to `DrzGraphics::DrawText`, which sets both anyway.
 
 - **`GFX3D::ConfigureDisplay()` leaked a full depth buffer per call**
   (`src/gfx3d.cpp`). It allocated `new float[w * h]` every time and dropped the

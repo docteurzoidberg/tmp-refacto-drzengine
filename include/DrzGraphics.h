@@ -594,6 +594,36 @@ public:
   virtual void DrawRect(int x, int y, int width, int height, Color color) = 0;
   virtual void DrawTriangle(int x1, int y1, int x2, int y2, int x3, int y3,
                             Color color) = 0;
+  /**
+   * @brief Draw @p text with the current font, @p (x, y) being the TOP-LEFT
+   * corner of the text's line box.
+   *
+   * The line box is the fixed-height band a line of the current font
+   * occupies: it starts at @p y and its baseline sits at
+   * `y + GetFontAscent()`. Glyphs are placed relative to that baseline, so
+   * the first row of ink is at `y + GetFontAscent() + glyph.yOffset`, which is
+   * `y` for the tallest glyph of the font and a few pixels lower for a
+   * plain capital or digit — the same for every string, so text that
+   * changes ("5" -> "6", "10" -> "9") never jumps vertically.
+   * Descenders (g, p, y, ...) extend below the baseline.
+   *
+   * Therefore `DrawText(s, 0, 0)` is entirely visible at the top of the
+   * screen, and with `bounds = GetTextBounds(s, 0, 0)` a text is centred in
+   * a widget of height `h` by `y = (h - bounds.h) / 2 - bounds.y`.
+   *
+   * @p x is the pen position: the first glyph's ink starts at
+   * `x + glyph.xOffset` (1 px to the right for the monospace fonts, possibly
+   * to the left for proportional ones), see GetTextBounds().
+   *
+   * A '\n' moves the pen to the next line box (`yAdvance` of the font
+   * lower) and back to screen column 0, not to @p x. Negative coordinates
+   * are legal and clipped per pixel.
+   *
+   * This is NOT the Adafruit-GFX convention the rasteriser derives from
+   * (there the cursor is the baseline). See docs/text-rendering.md.
+   *
+   * Does nothing until a font has been loaded and selected.
+   */
   virtual void DrawText(std::string text, int x, int y, Color color) = 0;
 
   virtual void DrawSprite(int x, int y, Sprite *sprite) = 0;
@@ -607,7 +637,28 @@ public:
   virtual void FillTriangle(int x1, int y1, int x2, int y2, int x3, int y3,
                             Color color) = 0;
 
+  /**
+   * @brief Rectangle of the pixels DrawText(@p text, @p x, @p y) would paint.
+   *
+   * Same coordinate convention as DrawText(): @p (x, y) is the top-left of
+   * the line box, and the returned `rect` is in screen coordinates — so
+   * `bounds.x - x` / `bounds.y - y` are the ink's inset from the pen
+   * position (`bounds.y >= y` always), and `bounds.w` / `bounds.h` the ink
+   * size.
+   * Zero-sized (positioned at @p x, @p y) for an empty string or when no
+   * font is selected.
+   */
   virtual rect GetTextBounds(const std::string &text, int x, int y) = 0;
+
+  /**
+   * @brief Distance in pixels from the top of a line box to its baseline
+   * for the current font: the height of its tallest glyph above the
+   * baseline. 0 when no font is selected.
+   *
+   * Use it to place something relative to the baseline, e.g. a text cursor
+   * whose bottom must sit on the baseline: `y + GetFontAscent() - cursorH`.
+   */
+  virtual int GetFontAscent();
 
   virtual int GetScreenWidth() = 0;
   virtual int GetScreenHeight() = 0;
@@ -641,9 +692,14 @@ public:
   static void SetTextForegroundColor(Color fg);
   static void SetTextBackgroundColor(Color bg);
 
+  // (x, y) is the top-left of the line box, not the baseline: see
+  // IDrzGraphics::DrawText and docs/text-rendering.md.
   static void DrawText(const std::string &text, int x, int y, Color color);
 
   static rect GetTextBounds(const std::string &text, int x, int y);
+
+  // Top of line box -> baseline, for the current font (0 without a font).
+  static int GetFontAscent();
 
 private:
   inline static int cursorX = 0;
@@ -654,9 +710,15 @@ private:
   inline static IDrzGraphics *instance = nullptr;
   inline static std::map<std::string, font *> fonts;
   inline static font *currentFont = nullptr;
+  // Ascent is scanned from the glyph table once per font, then cached here.
+  inline static std::map<const font *, int> fontAscents;
 
-  inline static void _drawChar(uint16_t x, uint16_t y, unsigned char c,
-                               Color fg, Color bg);
+  inline static int _fontAscent(const font *f);
+
+  // (x, y) is the baseline pen position, as in Adafruit GFX. int, not
+  // uint16_t: a negative coordinate must clip, not wrap to 65535.
+  inline static void _drawChar(int x, int y, unsigned char c, Color fg,
+                               Color bg);
 
   inline static size_t _writeChar(unsigned char c);
   inline static size_t _writeTextBuffer(const char *buffer, size_t size);

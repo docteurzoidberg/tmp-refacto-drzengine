@@ -81,6 +81,11 @@ the whole Adafruit-GFX-style glyph rasteriser (`_drawChar`/`_writeChar`/`_getTex
 `olc::PixelGameEngine::DrawString`. Text does nothing until the app has called `LoadFont`
 + `SetFont`.
 
+**`DrawText(text, x, y)` takes the top-left of the line box, not the baseline** (since
+2026-09-12; the private `_drawChar`/`_getTextBounds` helpers still speak Adafruit baseline,
+`DrawText`/`GetTextBounds` shift by `GetFontAscent()` before calling them). `docs/text-rendering.md`
+is the contract — point callers there instead of letting them add glyph heights to `y`.
+
 ### Frame lifecycle
 
 ```

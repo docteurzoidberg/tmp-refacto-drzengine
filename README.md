@@ -166,6 +166,14 @@ colours and the whole Adafruit-GFX-style glyph rasteriser, and draws text by cal
 the backend's `DrawPixel()`. That is why `DrzEngine_PGE::DrawText` delegates to
 `DrzGraphics::DrawText` rather than to `olc::PixelGameEngine::DrawString`.
 
+### Text
+
+`DrawText(text, x, y, color)` takes the **top-left of the text's line box**, not the baseline
+as Adafruit GFX does: `DrawText("A", 0, 0)` is fully visible in the top-left corner, and the
+vertical position depends on the font only, never on the string. `GetTextBounds()` returns the
+ink rectangle for the same `(x, y)`, `GetFontAscent()` the top-to-baseline distance. The full
+contract, with the alignment recipes, is in [docs/text-rendering.md](docs/text-rendering.md).
+
 ### Frame lifecycle
 
 ```

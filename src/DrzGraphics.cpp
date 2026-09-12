@@ -63,12 +63,18 @@ namespace drz {
 
   rect DrzGraphics::GetTextBounds(const std::string& text, int x, int y) {
     if(!currentFont) {
-      return {0, 0, 0, 0};
+      return {x, y, 0, 0};
     }
-    //call internal method
+    // The glyph rasteriser works from the baseline; (x, y) is the top of the
+    // line box, so shift down by the ascent exactly as DrawText does.
     int16_t x1, y1;
     uint16_t w1, h1;
-    _getTextBounds(text, x, y, &x1, &y1, &w1, &h1);
+    _getTextBounds(text, x, y + GetFontAscent(), &x1, &y1, &w1, &h1);
+    if (text.empty() || w1 == 0 || h1 == 0) {
+      // No ink: _getTextBounds leaves its outputs untouched for "" and
+      // reports the baseline otherwise; anchor the empty rect at (x, y).
+      return {x, y, 0, 0};
+    }
     return {x1, y1, w1, h1};
   }
 
@@ -76,13 +82,36 @@ namespace drz {
     if(!currentFont) {
       return;
     }
-    //call internal method
-    SetCursorPos(x, y);
+    // (x, y) is the top-left of the line box; the pen (cursor) is the
+    // baseline, one ascent lower. See IDrzGraphics::DrawText.
+    SetCursorPos(x, y + GetFontAscent());
     SetTextForegroundColor(color);
     _writeText(text);
   }
 
-  void DrzGraphics::_drawChar(uint16_t x, uint16_t y, unsigned char c, Color fg, Color bg) {
+  int DrzGraphics::GetFontAscent() {
+    return currentFont ? _fontAscent(currentFont) : 0;
+  }
+
+  int DrzGraphics::_fontAscent(const font *f) {
+    auto it = fontAscents.find(f);
+    if (it != fontAscents.end()) {
+      return it->second;
+    }
+    // Glyph yOffset is the (negative) distance from the baseline to the top
+    // of the glyph, so the ascent is the largest -yOffset over the font.
+    int ascent = 0;
+    for (int c = f->first; c <= f->last; c++) {
+      const fontglyph &g = f->glyph[c - f->first];
+      if (g.height > 0 && -g.yOffset > ascent) {
+        ascent = -g.yOffset;
+      }
+    }
+    fontAscents[f] = ascent;
+    return ascent;
+  }
+
+  void DrzGraphics::_drawChar(int x, int y, unsigned char c, Color fg, Color bg) {
     c -= (unsigned char) currentFont->first;
     fontglyph *glyph = currentFont->glyph + c;
     uint8_t *bitmap = currentFont->bitmap;
@@ -220,6 +249,10 @@ namespace drz {
     if (str.length() != 0) {
       _getTextBounds(const_cast<char *>(str.c_str()), x, y, x1, y1, w, h);
     }
+  }
+
+  int IDrzGraphics::GetFontAscent() {
+    return DrzGraphics::GetFontAscent();
   }
 
   #pragma endregion DrzGraphics
